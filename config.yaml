@@ -1,0 +1,42 @@
+# AI Production Studio — Configuration
+# Three independent model slots — each can use a different provider and key.
+
+# ── Text model (story planning, repair) ──
+text_provider: gemini          # gemini | huggingface | ollama
+gemini_api_key: GEMINI_API_KEY_HERE
+gemini_model: gemini-flash-latest
+hf_repo_id: ""                 # used if text_provider: huggingface
+ollama_model: llama3           # used if text_provider: ollama
+ollama_url: http://localhost:11434
+
+# ── Vision model (frame validation) ──
+vision_provider: gemini        # gemini | huggingface | ollama
+vision_gemini_api_key: ""      # leave blank to reuse gemini_api_key above
+
+# ── Image model (asset generation) ──
+image_provider: gemini         # gemini | diffusers — Imagen is being shut down by Google
+image_api_key: ""              # leave blank to reuse gemini_api_key above
+gemini_image_model: gemini-2.5-flash-image
+hf_image_repo_id: ""           # used if image_provider: diffusers
+
+# ── Local model settings (shared) ──
+hf_device: auto                # auto | cpu | cuda
+hf_max_new_tokens: 1024
+
+# ── Legacy compatibility (kept in sync automatically) ──
+llm_provider: gemini
+
+# ── External tools — setup.py fills these in automatically ──
+godot_path: godot
+blender_path: blender
+ffmpeg_path: ./bin/ffmpeg
+
+# ── Storage ──
+storage_path: ./storage
+
+# ── Pipeline settings ──
+max_repair_attempts: 3
+render_timeout_seconds: 300
+render_fps: 24
+render_width: 1920
+render_height: 1080

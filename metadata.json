@@ -1,0 +1,6 @@
+{
+  "name": "AI Production Studio",
+  "description": "A studio-grade AI video production pipeline with a dual-panel control and timeline interface, world state tracking, and process orchestration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

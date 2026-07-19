@@ -1,0 +1,32 @@
+# AI Production Studio — Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Core (always required) ──────────────────────────────────────────
+pyyaml>=6.0.1
+pydantic>=2.5.3
+PyQt6>=6.6.1
+requests>=2.31.0
+pytest>=7.4.3
+
+# ── Cloud AI (Gemini text + vision + Imagen) ─────────────────────────
+# Requires a Google AI Studio API key (free at aistudio.google.com)
+google-genai>=1.0.0
+
+# ── Local AI — text/vision (HuggingFace) ─────────────────────────────
+# Only needed if you choose a local HuggingFace model in setup.
+# Install separately: pip install transformers torch accelerate sentencepiece
+# For CPU-only torch (no GPU, smaller download):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+huggingface_hub>=0.20.3
+
+# ── Local AI — image generation (Stable Diffusion) ────────────────────
+# Only needed if you choose a local image model.
+# Install separately: pip install diffusers transformers torch accelerate
+# diffusers>=0.27.0
+
+# ── Scene interchange (optional, Phase 9+) ───────────────────────────
+# These are large native packages. Only needed for OpenUSD and timeline export.
+# Install separately when you reach that phase:
+#   pip install usd-core opentimelineio
+# usd-core>=23.11
+# opentimelineio>=0.15.0

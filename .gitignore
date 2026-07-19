@@ -1,0 +1,21 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Studio generated
+.venv/
+bin/
+storage/database/
+storage/cache/
+storage/logs/
+*.spec.bak
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
