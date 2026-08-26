@@ -76,21 +76,24 @@ def build_pipeline(config: dict):
     from src.core.repair.repair_engine import RepairEngine
     from src.core.director.director import Director
     from src.core.orchestrator.orchestrator import PipelineOrchestrator
+    from src.integrations.godot.renderer import GodotRenderer
 
     world_state     = WorldStateManager(config)
     text_provider   = get_text_provider(config)
     vision_provider = get_vision_provider(config)
     image_provider  = get_image_provider(config)
 
-    asset_manager  = AssetManager(config, image_provider)
-    scene_composer = SceneComposer(config)
-    validator_mgr  = ValidatorManager(text_provider, vision_provider)
-    director       = Director(text_provider, world_state)
-    repair_engine  = RepairEngine(asset_manager, scene_composer, director, world_state)
+    asset_manager   = AssetManager(config, image_provider)
+    scene_composer  = SceneComposer(config)
+    validator_mgr   = ValidatorManager(text_provider, vision_provider)
+    director        = Director(text_provider, world_state)
+    repair_engine   = RepairEngine(asset_manager, scene_composer, director, world_state)
+    godot_renderer  = GodotRenderer(config)
 
     orchestrator = PipelineOrchestrator(
         config, world_state, asset_manager,
-        scene_composer, validator_mgr, repair_engine
+        scene_composer, validator_mgr, repair_engine,
+        godot_renderer=godot_renderer,
     )
     return director, orchestrator, world_state, asset_manager
 

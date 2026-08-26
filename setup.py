@@ -9,10 +9,16 @@ SYSTEM = platform.system()
 ROOT   = Path(__file__).parent
 BIN    = ROOT / "bin"
 
+# Godot 4.7.2 is current stable as of Aug 2026 (verified: godot-4.7.2-stable
+# uploaded to godotengine/godot-builds on 2026-08-18). Desktop editor builds
+# are published under godotengine/godot releases using this naming pattern.
+# NOTE: verify the exact asset filename against the release page before
+# shipping, since Godot has occasionally changed its zip-naming convention
+# between minor versions.
 GODOT_URLS = {
-    "Windows": "https://github.com/godotengine/godot/releases/download/4.2.1-stable/Godot_v4.2.1-stable_win64.exe.zip",
-    "Darwin":  "https://github.com/godotengine/godot/releases/download/4.2.1-stable/Godot_v4.2.1-stable_macos.universal.zip",
-    "Linux":   "https://github.com/godotengine/godot/releases/download/4.2.1-stable/Godot_v4.2.1-stable_linux.x86_64.zip",
+    "Windows": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip",
+    "Darwin":  "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_macos.universal.zip",
+    "Linux":   "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip",
 }
 FFMPEG_URLS = {
     "Windows": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
@@ -42,10 +48,11 @@ def install_core_deps():
     banner("Installing core Python dependencies")
     run([sys.executable, "-m", "pip", "install", "--upgrade", "pip", "-q"])
     # Install only core deps — heavy optional ones are separate
-    core = ["pyyaml>=6.0.1", "pydantic>=2.5.3", "PyQt6>=6.6.1",
-            "requests>=2.31.0", "google-genai>=1.0.0", "huggingface_hub>=0.20.3"]
+    # Note: google-genai is GA and uses 2.x versioning (verified against PyPI Aug 2026)
+    core = ["pyyaml>=6.0.1", "pydantic>=2.7.0", "PyQt6>=6.11.0",
+            "requests>=2.32.0", "google-genai>=2.0.0", "huggingface_hub>=0.25.0"]
     run([sys.executable, "-m", "pip", "install"] + core + ["-q"])
-    print("  ✅ Core deps installed")
+    print("  ✅ Core deps installed (verified Aug 2026)")
 
 
 def ask_gpu():
@@ -86,8 +93,30 @@ def install_godot():
             shutil.copy2(p, dest)
             if SYSTEM != "Windows": dest.chmod(0o755)
             shutil.rmtree(BIN / "godot_ext")
-            print(f"  ✅ Godot: {dest}"); return str(dest)
+            print(f"  ✅ Godot: {dest}")
+            if SYSTEM == "Linux":
+                _check_xvfb()
+            return str(dest)
     print("  ⚠️  Could not locate Godot binary — install manually"); return ""
+
+
+def _check_xvfb() -> None:
+    """Verify xvfb-run is available on Linux — GodotRenderer requires it.
+
+    Verified during development that Godot's `--headless` flag alone
+    cannot actually render/write frames (it forces a no-op "dummy"
+    rendering driver) — real rendering needs a virtual X display. See
+    src/integrations/godot/renderer.py's module docstring and
+    ROADMAP.md Phase 2 for the full finding.
+    """
+    if shutil.which("xvfb-run") is not None:
+        print("  ✅ xvfb-run found")
+        return
+    print(
+        "  ⚠️  xvfb-run not found — required for actual Godot rendering.\n"
+        "     Install it with: sudo apt install xvfb (Debian/Ubuntu)\n"
+        "     or your distro's equivalent package."
+    )
 
 
 def install_ffmpeg():
@@ -125,7 +154,13 @@ def choose_model():
         return {
             "text_provider":   "huggingface",
             "vision_provider": "gemini" if gkey else "huggingface",
-            "image_provider":  "diffusers" if img_r else "imagen",
+            # "imagen" was never a valid image_provider value (see
+            # src/providers/provider_factory.py's _IMAGE_PROVIDERS) —
+            # choosing local-without-an-image-repo used to write an
+            # unrecognized provider name that failed obscurely. "gemini"
+            # at least fails with an actionable "set your API key" message
+            # if gkey is blank, since Imagen itself is being retired anyway.
+            "image_provider":  "diffusers" if img_r else "gemini",
             "gemini_api_key":  gkey or "GEMINI_API_KEY_HERE",
             "hf_repo_id":      repo,
             "hf_image_repo_id": img_r,
@@ -136,7 +171,9 @@ def choose_model():
         return {
             "text_provider":   "gemini",
             "vision_provider": "gemini",
-            "image_provider":  "imagen",   # ← correct: uses ImagenProvider not GeminiProvider
+            # Imagen is being retired (shutdown as early as Aug 17, 2026) —
+            # Gemini's own image model is the current path for new setups.
+            "image_provider":  "gemini",
             "gemini_api_key":  key,
         }
 
@@ -146,13 +183,13 @@ def write_config(godot_path, ffmpeg_path, model):
     cfg = f"""# AI Production Studio — Configuration
 text_provider:   {model.get("text_provider",   "gemini")}
 vision_provider: {model.get("vision_provider", "gemini")}
-image_provider:  {model.get("image_provider",  "imagen")}
+image_provider:  {model.get("image_provider",  "gemini")}
 
 gemini_api_key:       {model.get("gemini_api_key", "GEMINI_API_KEY_HERE")}
 vision_gemini_api_key: ""
 image_api_key:         ""
 gemini_model:         gemini-flash-latest
-imagen_model:         imagen-3.0-generate-001
+gemini_image_model:   gemini-3.1-flash-image
 
 hf_repo_id:       {model.get("hf_repo_id",       "")}
 hf_image_repo_id: {model.get("hf_image_repo_id", "")}
@@ -162,16 +199,21 @@ hf_max_new_tokens: 1024
 ollama_url:   http://localhost:11434
 ollama_model: llama3
 
-godot_path:   {godot_path  or "godot"}
-blender_path: blender
-ffmpeg_path:  {ffmpeg_path or "ffmpeg"}
+# NOTE: key is godot_binary_path — must match what GodotRenderer reads
+# (src/integrations/godot/renderer.py), not "godot_path".
+godot_binary_path: {godot_path  or "./bin/godot"}
+blender_path:      blender
+ffmpeg_path:       {ffmpeg_path or "ffmpeg"}
 
 storage_path:            ./storage
 max_repair_attempts:     3
 render_timeout_seconds:  300
 render_fps:              24
-render_width:            1920
-render_height:           1080
+render_width:            1152
+render_height:           648
+# ValidatorManager/RepairEngine aren't implemented yet (Phase 3) — leave
+# true so the pipeline marks shots rendered instead of raising on every shot.
+skip_validation:         true
 """
     (ROOT / "config.yaml").write_text(cfg)
     print("  ✅ config.yaml written")

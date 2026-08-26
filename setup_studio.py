@@ -71,7 +71,7 @@ EXE    = ".exe" if IS_WIN else ""
 
 # ── Download URLs ─────────────────────────────────────────────────────────────
 
-_GV  = "4.3-stable"
+_GV  = "4.7.2-stable"  # verified current stable as of Aug 2026
 _GB  = f"https://github.com/godotengine/godot/releases/download/{_GV}"
 _BV  = "4.2.0"
 _BB  = f"https://download.blender.org/release/Blender4.2/blender-{_BV}"
@@ -319,7 +319,11 @@ def install_godot() -> None:
     target_name = f"godot{EXE}"
     t = install_tool("godot", target_name, "Godot 4")
     if t and t.exists():
-        config_set("godot_path", str(t))
+        # NOTE: key must be godot_binary_path to match what GodotRenderer
+        # reads (src/integrations/godot/renderer.py) — "godot_path" was a
+        # stale key name that caused a configured binary to be silently
+        # ignored in favor of the ./bin/godot default.
+        config_set("godot_binary_path", str(t))
 
 
 def install_blender() -> None:

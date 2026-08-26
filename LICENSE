@@ -1,21 +1,64 @@
-MIT License
+BlazEng Community License
+Based on the MIT License, with additional terms set by the copyright holder.
 
-Copyright (c) 2026 MrGrimJoe
+Copyright (c) 2026 MrMIB
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to use, copy, modify, merge, publish, and distribute
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. ATTRIBUTION
+   The above copyright notice and this permission notice shall be
+   included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. REVIEW REQUIREMENT
+   If you use the Software — including running it, building on it, or
+   shipping a product or output made with it — you agree to post a
+   public review of your experience using it (for example, on the
+   project's GitHub repository or another public forum where the
+   Software is distributed). This is the one thing asked of you in
+   exchange for free use.
+
+3. NO RESALE OF THE SOFTWARE ITSELF
+   You may NOT package, rebrand, or sell the Software itself — or a
+   derivative that is substantially the Software — as a standalone
+   product or service. This includes selling licenses, subscriptions,
+   or access to the Software or a rebranded copy of it.
+
+   You MAY use the Software to create things (including commercially) —
+   for example, using it to produce videos and selling or monetizing
+   those videos, or using it as an internal tool in a business. Making
+   money BY USING the Software is fine. Making money BY SELLING the
+   Software is not.
+
+4. THESE TERMS ARE OFFERED AT THE COPYRIGHT HOLDER'S DISCRETION
+   The Software is currently provided free of charge under the terms
+   above. The copyright holder may change these terms, offer additional
+   licenses, or change availability of the Software at any time and at
+   their sole discretion. Continued free use under these terms is not
+   guaranteed indefinitely.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+---
+
+Plain-language summary (not a substitute for the terms above): use it,
+build with it, make money with what you build — just don't repackage
+and sell the tool itself, and leave a review if you use it. These terms
+apply for as long as the copyright holder chooses to offer them.
+
+Note: this is a custom license, not a standard OSI-approved one (MIT,
+Apache, etc. don't support usage restrictions like #2 and #3). If you
+need airtight legal terms for a specific situation, have a lawyer look
+this over — but for a personal project handing out free use with a
+couple of ground rules, this says what it means to say.

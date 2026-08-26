@@ -1,26 +1,40 @@
 # AI Production Studio — Dependencies
 # Install with: pip install -r requirements.txt
+# Last verified: August 23, 2026 (versions checked against PyPI directly)
 
 # ── Core (always required) ──────────────────────────────────────────
 pyyaml>=6.0.1
-pydantic>=2.5.3
-PyQt6>=6.6.1
-requests>=2.31.0
-pytest>=7.4.3
+pydantic>=2.7.0
+PyQt6>=6.11.0
+requests>=2.32.0
+pytest>=8.0.0
+pytest-cov>=5.0.0
 
-# ── Cloud AI (Gemini text + vision + Imagen) ─────────────────────────
-# Requires a Google AI Studio API key (free at aistudio.google.com)
-google-genai>=1.0.0
+# ── Cloud AI (Gemini text + vision + image generation) ────────────────
+# Requires a free Google AI Studio API key from aistudio.google.com
+# google-genai reached GA in May 2025 and now uses 2.x versioning
+# (current release as of Aug 2026 is 2.19.0 — pin >=2.0 to stay on GA line)
+google-genai>=2.0.0
+
+# ── Cloud AI (OpenAI text + vision + image generation) ─────────────────
+# Only needed if you set text_provider/vision_provider/image_provider: openai
+openai>=1.0.0
+
+# ── Cloud AI (Anthropic/Claude text + vision) ───────────────────────────
+# Only needed if you set text_provider/vision_provider: anthropic
+# Note: Claude has no image-generation API — use gemini/openai/diffusers
+# for image_provider even when using anthropic for text/vision.
+anthropic>=1.0.0
 
 # ── Local AI — text/vision (HuggingFace) ─────────────────────────────
 # Only needed if you choose a local HuggingFace model in setup.
 # Install separately: pip install transformers torch accelerate sentencepiece
 # For CPU-only torch (no GPU, smaller download):
 #   pip install torch --index-url https://download.pytorch.org/whl/cpu
-huggingface_hub>=0.20.3
+huggingface_hub>=0.25.0
 
 # ── Local AI — image generation (Stable Diffusion) ────────────────────
-# Only needed if you choose a local image model.
+# Only needed if you choose a local image model (image_provider: diffusers).
 # Install separately: pip install diffusers transformers torch accelerate
 # diffusers>=0.27.0
 

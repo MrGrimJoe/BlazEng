@@ -1,25 +1,72 @@
 # AI Production Studio — Configuration
 # Three independent model slots — each can use a different provider and key.
+# Supported providers per slot:
+#   text/vision: gemini | openai | anthropic | huggingface | ollama | dummy
+#   image:       gemini | openai | diffusers | dummy
+#   (Claude/Anthropic has no image-generation API — not offered as an
+#   image_provider option.)
 
 # ── Text model (story planning, repair) ──
-text_provider: gemini          # gemini | huggingface | ollama
+text_provider: gemini
+
+# --- Gemini ---
 gemini_api_key: GEMINI_API_KEY_HERE
+# IMPORTANT (verified Aug 2026): Gemini 2.0 Flash and Flash-Lite were SHUT DOWN
+# June 1, 2026 — do not use "gemini-2.0-flash", it will 404.
+# "gemini-flash-latest" is a stable alias Google keeps pointed at the current
+# GA Flash model (Gemini 3.5 Flash as of this writing), so it survives future
+# model swaps without editing this file. Pin an explicit version instead if
+# you need reproducible behavior.
 gemini_model: gemini-flash-latest
-hf_repo_id: ""                 # used if text_provider: huggingface
-ollama_model: llama3           # used if text_provider: ollama
+
+# --- OpenAI ---
+openai_api_key: OPENAI_API_KEY_HERE
+openai_model: gpt-5.5
+
+# --- Anthropic (Claude) ---
+anthropic_api_key: ANTHROPIC_API_KEY_HERE
+anthropic_model: claude-sonnet-4-5
+
+# --- HuggingFace (local) ---
+hf_repo_id: ""                 # e.g. "meta-llama/Llama-3.1-8B-Instruct"
+# Only needed for gated/private repos. If left blank and a gated repo is
+# selected, the app will PROMPT for a token at the point it's actually
+# needed rather than failing outright — see hf_common.py. Set it here to
+# skip that prompt on every run once you have one.
+hf_token: ""
+
+# --- Ollama (local) ---
+ollama_model: llama3
 ollama_url: http://localhost:11434
 
 # ── Vision model (frame validation) ──
-vision_provider: gemini        # gemini | huggingface | ollama
-vision_gemini_api_key: ""      # leave blank to reuse gemini_api_key above
+vision_provider: gemini
+# Each provider below defaults to reusing its text-model key/model above
+# if left blank — only set these if you want vision on a *different*
+# account/model than text (e.g. text via a cheap model, vision via a
+# stronger one).
+vision_gemini_api_key: ""
+vision_openai_api_key: ""
+vision_anthropic_api_key: ""
 
 # ── Image model (asset generation) ──
-image_provider: gemini         # gemini | diffusers — Imagen is being shut down by Google
+image_provider: gemini
+# Google's Imagen line is being retired (shutdown as early as Aug 17, 2026).
+# Gemini's own image model — "Nano Banana 2" (gemini-3.1-flash-image) — is
+# the current recommended replacement: fast, cheap, and supports
+# conversational multi-image editing + character consistency, which matters
+# for this project's continuity requirements. Check ai.google.dev/gemini-api
+# /docs/changelog before shipping, since Google has deprecated image models
+# on short notice more than once this year.
 image_api_key: ""              # leave blank to reuse gemini_api_key above
-gemini_image_model: gemini-2.5-flash-image
-hf_image_repo_id: ""           # used if image_provider: diffusers
+gemini_image_model: gemini-3.1-flash-image
 
-# ── Local model settings (shared) ──
+image_openai_api_key: ""       # leave blank to reuse openai_api_key above
+openai_image_model: gpt-image-1
+
+hf_image_repo_id: ""           # used if image_provider: diffusers, e.g. "stabilityai/sdxl-turbo"
+
+# ── Local model settings (shared: huggingface text/vision + diffusers) ──
 hf_device: auto                # auto | cpu | cuda
 hf_max_new_tokens: 1024
 
@@ -27,9 +74,15 @@ hf_max_new_tokens: 1024
 llm_provider: gemini
 
 # ── External tools — setup.py fills these in automatically ──
-godot_path: godot
+# NOTE: key is godot_binary_path (not godot_path) — this must match what
+# GodotRenderer reads (src/integrations/godot/renderer.py), or your
+# configured binary is silently ignored in favor of the ./bin/godot default.
+godot_binary_path: ./bin/godot
 blender_path: blender
-ffmpeg_path: ./bin/ffmpeg
+# Bare "ffmpeg" resolves via PATH if you already have it installed
+# (VideoAssembler looks it up with shutil.which). setup.py overwrites
+# this with a concrete downloaded path if it installs its own copy.
+ffmpeg_path: ffmpeg
 
 # ── Storage ──
 storage_path: ./storage
@@ -38,5 +91,10 @@ storage_path: ./storage
 max_repair_attempts: 3
 render_timeout_seconds: 300
 render_fps: 24
-render_width: 1920
-render_height: 1080
+render_width: 1152
+render_height: 648
+# ValidatorManager/RepairEngine ARE implemented (Phase 3, Aug 2026). Set
+# this to false to enable real validation + auto-repair; true skips
+# straight to "rendered" status, which is faster/cheaper for quick tests
+# or if you don't have a vision-capable model configured.
+skip_validation: true
