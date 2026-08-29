@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -62,6 +62,15 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip" -OutFile $godotZip -UseBasicParsing
           New-Item -ItemType Directory -Force -Path godot | Out-Null
           Expand-Archive -Path $godotZip -DestinationPath godot -Force
+
+      - name: Stage empty storage/ directory (required by AIProductionStudio.spec)
+        shell: pwsh
+        run: |
+          # datas=[('storage/', 'storage/')] in the spec needs this to exist
+          # at build time, but it's user-generated content (never committed
+          # to the repo -- created at runtime otherwise), so a from-scratch
+          # checkout has no storage/ at all without this.
+          New-Item -ItemType Directory -Force -Path storage | Out-Null
 
       - name: Build with PyInstaller
         shell: pwsh
