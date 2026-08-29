@@ -21,7 +21,12 @@ a = Analysis(
         'pydantic',
         'yaml',
         'sqlite3',
-        'opentimelineio',
+        # opentimelineio deliberately NOT here: requirements.txt has it
+        # commented out (Phase 9+, not built yet -- see
+        # src/integrations/usd/__init__.py, which is a literal empty stub),
+        # so it's never actually installed. Forcing it as a hiddenimport
+        # made PyInstaller fail trying to resolve a module that doesn't
+        # exist in the build environment.
     ],
     hookspath=[],
     hooksconfig={},
