@@ -1,0 +1,110 @@
+name: Build AI Production Studio Installer
+
+# AIProductionStudio.spec references bin/ffmpeg.exe and godot/ in its
+# binaries=[]/datas=[], but neither is committed to the repo -- setup.py
+# normally downloads them at first-run, after the exe already exists. For
+# a from-scratch CI build to work at all, both have to be staged BEFORE
+# PyInstaller runs, using the same URLs setup.py already defines.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+      - "AIProductionStudio.spec"
+      - "installer.iss"
+      - "config.yaml"
+      - ".github/workflows/build-installer.yml"
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Also attach the built installer to a GitHub Release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller + app dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Stage bundled FFmpeg (required by AIProductionStudio.spec)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          $ffmpegZip = "$env:TEMP\ffmpeg.zip"
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile $ffmpegZip -UseBasicParsing
+          Expand-Archive -Path $ffmpegZip -DestinationPath "$env:TEMP\ffmpeg_extracted" -Force
+          $exe = Get-ChildItem -Path "$env:TEMP\ffmpeg_extracted" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+          if (-not $exe) { Write-Error "ffmpeg.exe not found in the downloaded archive."; exit 1 }
+          Copy-Item $exe.FullName -Destination "bin\ffmpeg.exe"
+
+      - name: Stage Godot (required by AIProductionStudio.spec)
+        shell: pwsh
+        run: |
+          $godotZip = "$env:TEMP\godot.zip"
+          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip" -OutFile $godotZip -UseBasicParsing
+          New-Item -ItemType Directory -Force -Path godot | Out-Null
+          Expand-Archive -Path $godotZip -DestinationPath godot -Force
+
+      - name: Build with PyInstaller
+        shell: pwsh
+        run: pyinstaller AIProductionStudio.spec --clean --noconfirm
+
+      - name: Verify PyInstaller output exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\AIProductionStudio\AIProductionStudio.exe")) {
+            Write-Error "dist\AIProductionStudio\AIProductionStudio.exe was not produced -- check the PyInstaller log above."
+            exit 1
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile installer.iss
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer.iss"
+
+      - name: Verify installer output exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\installer\AIProductionStudio_Setup.exe")) {
+            Write-Error "AIProductionStudio_Setup.exe was not produced -- check the ISCC log above."
+            exit 1
+          }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: AIProductionStudio_Setup
+          path: dist\installer\AIProductionStudio_Setup.exe
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v1.0.0-${{ github.run_number }}
+          name: AI Production Studio v1.0.0 (build ${{ github.run_number }})
+          files: dist\installer\AIProductionStudio_Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
