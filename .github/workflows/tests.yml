@@ -31,6 +31,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # transformers/diffusers are intentionally NOT in requirements.txt --
+      # they're optional (only needed if someone picks a local HF/diffusers
+      # provider) and pull in real weights on first use. But
+      # test_huggingface_provider.py / test_diffusers_provider.py patch
+      # module-level names (_hf_pipeline, _AutoPipelineForText2Image) that
+      # only exist once the real import succeeds; without these two
+      # installed, that import falls into the except ImportError branch and
+      # the name never gets defined, so mock.patch has nothing to target.
+      # Installing them here doesn't pull in torch and needs no network
+      # beyond PyPI -- these tests never touch a real model.
+      - name: Install optional provider deps needed for test mocking
+        run: pip install transformers diffusers
+
       - name: Run test suite
         # No API keys needed: the suite is designed to run fully offline
         # via dummy providers, and Gemini-provider tests mock the SDK
