@@ -17,7 +17,7 @@ a = Analysis(
     hiddenimports=[
         'PyQt6.QtMultimedia',
         'PyQt6.QtMultimediaWidgets',
-        'google.generativeai',
+        'google.genai',
         'pydantic',
         'yaml',
         'sqlite3',
