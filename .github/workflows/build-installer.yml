@@ -84,14 +84,23 @@ jobs:
         if: steps.pyinstaller_build.outcome == 'failure'
         shell: pwsh
         run: |
+          # *.log is gitignored (confirmed: .gitignore has `*.log`), so a
+          # plain `git add` silently no-ops on it -- which is exactly what
+          # happened last time, and PowerShell steps in GH Actions don't
+          # fail on a nonzero exit code from an external command unless you
+          # check it yourself, so that no-op reported "success" anyway.
+          # Force-add past .gitignore, and check every git call explicitly.
           git config user.email "ci@github-actions.local"
           git config user.name "GitHub Actions CI"
           git fetch origin ci-debug-logs 2>$null
           git checkout -B ci-debug-logs
           Copy-Item pyinstaller_output.log "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
-          git add "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
+          git add -f "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
+          if ($LASTEXITCODE -ne 0) { Write-Error "git add failed"; exit 1 }
           git commit -m "CI debug log: PyInstaller failure, run $env:GITHUB_RUN_NUMBER"
+          if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed"; exit 1 }
           git push origin ci-debug-logs --force
+          if ($LASTEXITCODE -ne 0) { Write-Error "git push failed"; exit 1 }
 
       - name: Fail the job if PyInstaller actually failed
         if: steps.pyinstaller_build.outcome == 'failure'
