@@ -73,8 +73,30 @@ jobs:
           New-Item -ItemType Directory -Force -Path storage | Out-Null
 
       - name: Build with PyInstaller
+        id: pyinstaller_build
         shell: pwsh
-        run: pyinstaller AIProductionStudio.spec --clean --noconfirm
+        continue-on-error: true
+        run: |
+          pyinstaller AIProductionStudio.spec --clean --noconfirm 2>&1 | Tee-Object -FilePath pyinstaller_output.log
+          exit $LASTEXITCODE
+
+      - name: Commit build log on failure (self-diagnosing)
+        if: steps.pyinstaller_build.outcome == 'failure'
+        shell: pwsh
+        run: |
+          git config user.email "ci@github-actions.local"
+          git config user.name "GitHub Actions CI"
+          git fetch origin ci-debug-logs 2>$null
+          git checkout -B ci-debug-logs
+          Copy-Item pyinstaller_output.log "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
+          git add "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
+          git commit -m "CI debug log: PyInstaller failure, run $env:GITHUB_RUN_NUMBER"
+          git push origin ci-debug-logs --force
+
+      - name: Fail the job if PyInstaller actually failed
+        if: steps.pyinstaller_build.outcome == 'failure'
+        shell: pwsh
+        run: exit 1
 
       - name: Verify PyInstaller output exists
         shell: pwsh
