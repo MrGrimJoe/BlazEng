@@ -12,7 +12,14 @@ OutputBaseFilename=AIProductionStudio_Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; assets\icon.ico doesn't exist in the repo (no assets\ folder committed
+; at all -- confirmed, same gap as the PyInstaller spec had). Only set
+; SetupIconFile if it's actually there so this doesn't hard-fail
+; compilation over a missing design asset; Inno just uses its own default
+; icon until a real one gets added here.
+#if FileExists("assets\icon.ico")
 SetupIconFile=assets\icon.ico
+#endif
 ; AIProductionStudio.spec's EXE() names the output 'AIProductionStudio',
 ; not 'main.exe' -- every reference below now matches what PyInstaller
 ; actually produces.
