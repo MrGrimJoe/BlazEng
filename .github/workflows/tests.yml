@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,10 +17,10 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -45,13 +48,39 @@ jobs:
         run: pip install transformers diffusers
 
       - name: Run test suite
+        id: run_tests
+        continue-on-error: true
         # No API keys needed: the suite is designed to run fully offline
         # via dummy providers, and Gemini-provider tests mock the SDK
         # client rather than hitting the live API.
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          python -m pytest tests/ -v --cov=src/core --cov=src/providers --cov-report=term-missing
+          python -m pytest tests/ -v --cov=src/core --cov=src/providers --cov-report=term-missing 2>&1 | tee pytest_output.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Commit test log on failure (self-diagnosing)
+        # This has failed 3 runs in a row, alternating which Python version
+        # goes red each time (3.12, then 3.11, then 3.12 again) -- a real
+        # bug fails the same version every time, so this looks like a flaky
+        # test, but guessing further than that isn't useful without the
+        # actual pytest output. *.log is gitignored so this force-adds past
+        # that (confirmed the cause of a silent no-op on a different
+        # workflow in this same repo).
+        if: steps.run_tests.outcome == 'failure'
+        run: |
+          git config user.email "ci@github-actions.local"
+          git config user.name "GitHub Actions CI"
+          git fetch origin ci-debug-logs || true
+          git checkout -B ci-debug-logs
+          cp pytest_output.log "pytest-py${{ matrix.python-version }}-run${{ github.run_number }}.log"
+          git add -f "pytest-py${{ matrix.python-version }}-run${{ github.run_number }}.log"
+          git commit -m "CI debug log: pytest failure py${{ matrix.python-version }}, run ${{ github.run_number }}"
+          git push origin ci-debug-logs --force
+
+      - name: Fail the job if tests actually failed
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1
 
       - name: Verify app boots (smoke test)
         env:
@@ -85,10 +114,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
