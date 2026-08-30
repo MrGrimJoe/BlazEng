@@ -1,6 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec file — builds the .exe
 
+import os
+
 block_cipher = None
 
 a = Analysis(
@@ -40,6 +42,16 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# assets/icon.ico doesn't exist in the repo (no assets/ folder at all --
+# same never-committed-yet pattern as storage/ and godot/, but this one's
+# an actual design asset, not something to fake). PyInstaller's icon
+# embedding is Windows-only and hard-fails with FileNotFoundError if the
+# path doesn't exist, even though the app itself has nothing to do with
+# icons -- Icon() falling back to None just means Windows shows the
+# generic exe icon until a real .ico gets added here.
+_icon_path = 'assets/icon.ico'
+_icon = _icon_path if os.path.isfile(_icon_path) else None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -55,7 +67,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icon.ico',
+    icon=_icon,
 )
 
 coll = COLLECT(
