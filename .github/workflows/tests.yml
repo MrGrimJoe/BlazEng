@@ -24,10 +24,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install system Qt dependencies for offscreen PyQt6
+      - name: Install system Qt + ffmpeg dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libgl1
+          sudo apt-get install -y libegl1 libxkbcommon0 libgl1 ffmpeg
 
       - name: Install Python dependencies
         run: |
@@ -60,13 +60,13 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       - name: Commit test log on failure (self-diagnosing)
-        # This has failed 3 runs in a row, alternating which Python version
-        # goes red each time (3.12, then 3.11, then 3.12 again) -- a real
-        # bug fails the same version every time, so this looks like a flaky
-        # test, but guessing further than that isn't useful without the
-        # actual pytest output. *.log is gitignored so this force-adds past
-        # that (confirmed the cause of a silent no-op on a different
-        # workflow in this same repo).
+        # Real cause found via this same mechanism, not flaky: ffmpeg
+        # wasn't installed on the runner at all ("ffmpeg binary not found"),
+        # and 3.11/3.12 alternating which one showed as the failure was
+        # just fail-fast racing -- both would've failed the same way, but
+        # whichever matrix job finished first got reported before the
+        # other could also fail, so the other showed as cancelled instead.
+        # Left this mechanism in place for whatever comes up next.
         if: steps.run_tests.outcome == 'failure'
         run: |
           git config user.email "ci@github-actions.local"
