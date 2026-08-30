@@ -1,0 +1,361 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.16, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.11.16/x64/bin/python
+cachedir: .pytest_cache
+rootdir: /home/runner/work/BlazEng/BlazEng
+configfile: pytest.ini
+plugins: anyio-4.14.2, cov-7.1.0
+collecting ... collected 267 items
+
+tests/test_anthropic_provider.py::TestConfigValidation::test_text_provider_rejects_empty_key PASSED [  0%]
+tests/test_anthropic_provider.py::TestConfigValidation::test_text_provider_rejects_placeholder_key PASSED [  0%]
+tests/test_anthropic_provider.py::TestConfigValidation::test_vision_provider_rejects_empty_key PASSED [  1%]
+tests/test_anthropic_provider.py::TestConfigValidation::test_text_provider_accepts_real_looking_key PASSED [  1%]
+tests/test_anthropic_provider.py::TestExtractText::test_single_text_block PASSED [  1%]
+tests/test_anthropic_provider.py::TestExtractText::test_multiple_text_blocks_concatenated PASSED [  2%]
+tests/test_anthropic_provider.py::TestExtractText::test_non_text_blocks_skipped PASSED [  2%]
+tests/test_anthropic_provider.py::TestExtractText::test_empty_content_returns_empty_string PASSED [  2%]
+tests/test_anthropic_provider.py::TestAnthropicTextGenerate::test_generate_returns_extracted_text PASSED [  3%]
+tests/test_anthropic_provider.py::TestAnthropicTextGenerate::test_generate_requires_max_tokens_in_call PASSED [  3%]
+tests/test_anthropic_provider.py::TestAnthropicTextGenerate::test_generate_puts_system_instruction_in_system_param_not_messages PASSED [  4%]
+tests/test_anthropic_provider.py::TestAnthropicTextGenerate::test_generate_propagates_sdk_exceptions PASSED [  4%]
+tests/test_anthropic_provider.py::TestAnthropicVisionAnalyze::test_analyze_raises_for_missing_file PASSED [  4%]
+tests/test_anthropic_provider.py::TestAnthropicVisionAnalyze::test_analyze_sends_base64_image_block PASSED [  5%]
+tests/test_asset_manager.py::TestSanitize::test_normal_name_unchanged PASSED [  5%]
+tests/test_asset_manager.py::TestSanitize::test_spaces_replaced PASSED   [  5%]
+tests/test_asset_manager.py::TestSanitize::test_special_chars_replaced PASSED [  6%]
+tests/test_asset_manager.py::TestSanitize::test_empty_after_sanitize_raises PASSED [  6%]
+tests/test_asset_manager.py::TestGetAsset::test_generates_new_asset PASSED [  7%]
+tests/test_asset_manager.py::TestGetAsset::test_same_description_hits_cache PASSED [  7%]
+tests/test_asset_manager.py::TestGetAsset::test_different_description_creates_new_version PASSED [  7%]
+tests/test_asset_manager.py::TestGetAsset::test_force_regenerate_creates_new_version_even_if_same_description PASSED [  8%]
+tests/test_asset_manager.py::TestGetAsset::test_different_asset_types_are_independent PASSED [  8%]
+tests/test_asset_manager.py::TestGetAsset::test_version_numbers_increment_sequentially PASSED [  8%]
+tests/test_asset_manager.py::TestDeleteAssetVersion::test_delete_existing_version PASSED [  9%]
+tests/test_asset_manager.py::TestDeleteAssetVersion::test_delete_nonexistent_version_returns_false PASSED [  9%]
+tests/test_asset_manager.py::TestListAssetVersions::test_empty_for_unknown_asset PASSED [ 10%]
+tests/test_asset_manager.py::TestCacheRecovery::test_missing_image_file_triggers_regeneration PASSED [ 10%]
+tests/test_asset_manager.py::TestCacheRecovery::test_missing_meta_json_treated_as_cache_miss PASSED [ 10%]
+tests/test_asset_manager.py::TestCacheRecovery::test_corrupted_meta_json_treated_as_cache_miss PASSED [ 11%]
+tests/test_asset_manager.py::TestCacheRecovery::test_version_number_parsing_ignores_malformed_dirs PASSED [ 11%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderConfig::test_requires_repo_id PASSED [ 11%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderConfig::test_construction_does_not_load_model PASSED [ 12%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_generate_loads_lazily_and_saves_image PASSED [ 12%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_generate_only_loads_once_across_multiple_calls PASSED [ 13%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_auto_device_selects_cpu_when_no_cuda PASSED [ 13%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_gated_repo_prompts_for_token_and_retries PASSED [ 13%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_ungated_repo_never_calls_token_prompt PASSED [ 14%]
+tests/test_diffusers_provider.py::TestDiffusersImageProviderGenerate::test_diffusers_not_installed_raises_config_error PASSED [ 14%]
+tests/test_director.py::TestExtractJson::test_pure_json PASSED           [ 14%]
+tests/test_director.py::TestExtractJson::test_json_in_markdown_fence PASSED [ 15%]
+tests/test_director.py::TestExtractJson::test_json_with_surrounding_prose PASSED [ 15%]
+tests/test_director.py::TestExtractJson::test_invalid_json_returns_none PASSED [ 16%]
+tests/test_director.py::TestExtractJson::test_empty_string_returns_none PASSED [ 16%]
+tests/test_director.py::TestExtractJson::test_non_dict_json_returns_none PASSED [ 16%]
+tests/test_director.py::TestExtractJson::test_trailing_comma_in_object_recovered PASSED [ 17%]
+tests/test_director.py::TestExtractJson::test_multiple_fenced_blocks_scratch_then_real PASSED [ 17%]
+tests/test_director.py::TestExtractJson::test_prose_with_stray_braces_does_not_break_extraction PASSED [ 17%]
+tests/test_director.py::TestExtractJson::test_truncated_json_stays_unparseable PASSED [ 18%]
+tests/test_director.py::TestExtractJson::test_top_level_list_instead_of_dict_fails_honestly PASSED [ 18%]
+tests/test_director.py::TestCharactersFieldCoercion::test_bare_string_characters_becomes_single_item_list PASSED [ 19%]
+tests/test_director.py::TestCharactersFieldCoercion::test_empty_string_characters_becomes_empty_list PASSED [ 19%]
+tests/test_director.py::TestCharactersFieldCoercion::test_normal_list_characters_still_works PASSED [ 19%]
+tests/test_director.py::TestGenerateProductionPlan::test_empty_prompt_raises PASSED [ 20%]
+tests/test_director.py::TestGenerateProductionPlan::test_valid_plan_parses PASSED [ 20%]
+tests/test_director.py::TestGenerateProductionPlan::test_plan_seeds_world_state PASSED [ 20%]
+tests/test_director.py::TestGenerateProductionPlan::test_unparseable_response_raises_after_retry PASSED [ 21%]
+tests/test_director.py::TestGenerateProductionPlan::test_empty_shots_list_raises PASSED [ 21%]
+tests/test_director.py::TestGenerateProductionPlan::test_duplicate_shot_ids_are_deduplicated PASSED [ 22%]
+tests/test_director.py::TestGenerateProductionPlan::test_missing_optional_fields_get_defaults PASSED [ 22%]
+tests/test_director.py::TestRepairShot::test_repair_unknown_shot_raises PASSED [ 22%]
+tests/test_director.py::TestRepairShot::test_repair_updates_description PASSED [ 23%]
+tests/test_director.py::TestRepairShot::test_repair_falls_back_to_original_if_response_unparseable PASSED [ 23%]
+tests/test_director.py::TestRepairShot::test_repair_without_world_state_raises PASSED [ 23%]
+tests/test_director.py::TestSeedWorldStateEdgeCases::test_none_world_state_does_not_crash PASSED [ 24%]
+tests/test_director.py::TestSeedWorldStateEdgeCases::test_non_dict_world_state_seed_entries_are_skipped PASSED [ 24%]
+tests/test_director.py::TestSeedWorldStateEdgeCases::test_non_dict_world_state_seed_top_level_defaults_to_empty PASSED [ 25%]
+tests/test_director.py::TestCreateTaskSchedule::test_task_schedule_has_all_phases PASSED [ 25%]
+tests/test_director.py::TestCreateTaskSchedule::test_asset_generation_deduplicated_across_shots PASSED [ 25%]
+tests/test_director.py::TestCreateTaskSchedule::test_compose_render_validate_counts_match_shot_count PASSED [ 26%]
+tests/test_gemini_provider.py::TestConfigValidation::test_text_provider_rejects_empty_key PASSED [ 26%]
+tests/test_gemini_provider.py::TestConfigValidation::test_text_provider_rejects_placeholder_key PASSED [ 26%]
+tests/test_gemini_provider.py::TestConfigValidation::test_vision_provider_rejects_empty_key PASSED [ 27%]
+tests/test_gemini_provider.py::TestConfigValidation::test_image_provider_rejects_empty_key PASSED [ 27%]
+tests/test_gemini_provider.py::TestConfigValidation::test_text_provider_accepts_real_looking_key PASSED [ 28%]
+tests/test_gemini_provider.py::TestConfigValidation::test_text_provider_uses_configured_model PASSED [ 28%]
+tests/test_gemini_provider.py::TestGeminiTextProviderGenerate::test_generate_calls_sdk_with_prompt_and_returns_text PASSED [ 28%]
+tests/test_gemini_provider.py::TestGeminiTextProviderGenerate::test_generate_returns_empty_string_for_none_text PASSED [ 29%]
+tests/test_gemini_provider.py::TestGeminiTextProviderGenerate::test_generate_propagates_sdk_exceptions PASSED [ 29%]
+tests/test_gemini_provider.py::TestGeminiVisionProviderAnalyze::test_analyze_raises_for_missing_file PASSED [ 29%]
+tests/test_gemini_provider.py::TestGeminiVisionProviderAnalyze::test_analyze_sends_image_bytes_and_prompt PASSED [ 30%]
+tests/test_gemini_provider.py::TestGeminiImageProviderGenerateImage::test_generate_image_writes_returned_bytes PASSED [ 30%]
+tests/test_gemini_provider.py::TestGeminiImageProviderGenerateImage::test_generate_image_raises_if_no_image_in_response PASSED [ 31%]
+tests/test_gemini_provider.py::TestGeminiImageProviderGenerateImage::test_generate_image_raises_on_empty_inline_data_bytes PASSED [ 31%]
+tests/test_gemini_provider.py::TestGeminiImageProviderGenerateImage::test_generate_image_creates_parent_directories PASSED [ 31%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_known_extensions[.png-image/png] PASSED [ 32%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_known_extensions[.jpg-image/jpeg] PASSED [ 32%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_known_extensions[.jpeg-image/jpeg] PASSED [ 32%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_known_extensions[.webp-image/webp] PASSED [ 33%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_known_extensions[.PNG-image/png] PASSED [ 33%]
+tests/test_gemini_provider.py::TestGuessMimeType::test_unknown_extension_defaults_to_png PASSED [ 34%]
+tests/test_godot_renderer.py::TestGodotRendererValidation::test_missing_binary_raises_clear_error PASSED [ 34%]
+tests/test_godot_renderer.py::TestGodotRendererValidation::test_missing_xvfb_raises_clear_error PASSED [ 34%]
+tests/test_godot_renderer.py::TestGodotRendererCommandConstruction::test_builds_expected_command PASSED [ 35%]
+tests/test_godot_renderer.py::TestGodotRendererCommandConstruction::test_frame_count_derived_from_duration PASSED [ 35%]
+tests/test_godot_renderer.py::TestGodotRendererCommandConstruction::test_explicit_num_frames_overrides_duration PASSED [ 35%]
+tests/test_godot_renderer.py::TestGodotRendererErrorHandling::test_nonzero_exit_raises_with_stderr PASSED [ 36%]
+tests/test_godot_renderer.py::TestGodotRendererErrorHandling::test_timeout_raises_clear_error PASSED [ 36%]
+tests/test_godot_renderer.py::TestGodotRendererErrorHandling::test_success_exit_but_no_frames_raises PASSED [ 37%]
+tests/test_godot_renderer.py::TestGodotRendererErrorHandling::test_stale_frames_cleared_before_render PASSED [ 37%]
+tests/test_godot_renderer.py::TestGodotRendererRealIntegration::test_real_render_produces_correct_pixels SKIPPEDration test) [ 37%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_matches_gated_repo_wording PASSED [ 38%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_matches_restricted_authenticated_wording PASSED [ 38%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_matches_401_huggingface_wording PASSED [ 38%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_unrelated_error_not_matched PASSED [ 39%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_unrelated_401_without_huggingface_not_matched PASSED [ 39%]
+tests/test_hf_token_fallback.py::TestIsGatedRepoError::test_real_gated_repo_error_class_detected PASSED [ 40%]
+tests/test_hf_token_fallback.py::TestDefaultTokenPrompt::test_uses_getpass_and_strips_result PASSED [ 40%]
+tests/test_hf_token_fallback.py::TestDefaultTokenPrompt::test_falls_back_to_input_if_getpass_fails PASSED [ 40%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_ungated_repo_never_prompts PASSED [ 41%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_gated_repo_with_no_token_prompts_and_retries PASSED [ 41%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_already_has_token_and_still_fails_does_not_prompt_again PASSED [ 41%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_user_declines_prompt_raises PASSED [ 42%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_non_auth_error_is_not_caught_by_fallback PASSED [ 42%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_retry_with_token_still_failing_raises_that_failure PASSED [ 43%]
+tests/test_hf_token_fallback.py::TestLoadWithTokenFallback::test_default_prompt_used_when_none_given PASSED [ 43%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderConfig::test_requires_repo_id PASSED [ 43%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderConfig::test_construction_does_not_load_model PASSED [ 44%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderGenerate::test_generate_loads_lazily_and_strips_echoed_prompt PASSED [ 44%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderGenerate::test_generate_only_loads_once_across_multiple_calls PASSED [ 44%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderGenerate::test_gated_repo_prompts_for_token_and_retries PASSED [ 45%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderGenerate::test_ungated_repo_never_calls_token_prompt PASSED [ 45%]
+tests/test_huggingface_provider.py::TestHuggingFaceTextProviderGenerate::test_transformers_not_installed_raises_config_error PASSED [ 46%]
+tests/test_huggingface_provider.py::TestHuggingFaceVisionProvider::test_requires_repo_id PASSED [ 46%]
+tests/test_huggingface_provider.py::TestHuggingFaceVisionProvider::test_analyze_raises_for_missing_file PASSED [ 46%]
+tests/test_huggingface_provider.py::TestHuggingFaceVisionProvider::test_analyze_returns_top_answer PASSED [ 47%]
+tests/test_huggingface_provider.py::TestHuggingFaceVisionProvider::test_gated_vision_repo_prompts_for_token PASSED [ 47%]
+tests/test_integration_pipeline.py::test_full_prompt_to_assets_pipeline PASSED [ 47%]
+tests/test_integration_pipeline.py::test_pipeline_survives_shot_repair_cycle PASSED [ 48%]
+tests/test_openai_provider.py::TestConfigValidation::test_text_provider_rejects_empty_key PASSED [ 48%]
+tests/test_openai_provider.py::TestConfigValidation::test_text_provider_rejects_placeholder_key PASSED [ 49%]
+tests/test_openai_provider.py::TestConfigValidation::test_vision_provider_rejects_empty_key PASSED [ 49%]
+tests/test_openai_provider.py::TestConfigValidation::test_image_provider_rejects_empty_key PASSED [ 49%]
+tests/test_openai_provider.py::TestConfigValidation::test_text_provider_accepts_real_looking_key PASSED [ 50%]
+tests/test_openai_provider.py::TestOpenAITextGenerate::test_generate_returns_message_content PASSED [ 50%]
+tests/test_openai_provider.py::TestOpenAITextGenerate::test_generate_includes_system_instruction_as_system_message PASSED [ 50%]
+tests/test_openai_provider.py::TestOpenAITextGenerate::test_generate_returns_empty_string_for_none_content PASSED [ 51%]
+tests/test_openai_provider.py::TestOpenAITextGenerate::test_generate_propagates_sdk_exceptions PASSED [ 51%]
+tests/test_openai_provider.py::TestOpenAIVisionAnalyze::test_analyze_raises_for_missing_file PASSED [ 52%]
+tests/test_openai_provider.py::TestOpenAIVisionAnalyze::test_analyze_sends_base64_data_url PASSED [ 52%]
+tests/test_openai_provider.py::TestOpenAIImageGenerate::test_generate_image_decodes_and_writes_b64 PASSED [ 52%]
+tests/test_openai_provider.py::TestOpenAIImageGenerate::test_generate_image_raises_if_no_data PASSED [ 53%]
+tests/test_orchestrator.py::TestLoadTaskSchedule::test_run_without_loading_raises PASSED [ 53%]
+tests/test_orchestrator.py::TestLoadTaskSchedule::test_load_stores_tasks PASSED [ 53%]
+tests/test_orchestrator.py::TestAssetGeneration::test_generate_asset_task_populates_asset_paths PASSED [ 54%]
+tests/test_orchestrator.py::TestAssetGeneration::test_generate_asset_uses_world_state_appearance PASSED [ 54%]
+tests/test_orchestrator.py::TestComposeScene::test_compose_without_assets_fails_the_shot PASSED [ 55%]
+tests/test_orchestrator.py::TestComposeScene::test_compose_after_assets_succeeds PASSED [ 55%]
+tests/test_orchestrator.py::TestRenderWithoutRenderer::test_render_without_godot_renderer_fails_clearly PASSED [ 55%]
+tests/test_orchestrator.py::TestRenderWithoutRenderer::test_render_without_composed_scene_fails_clearly PASSED [ 56%]
+tests/test_orchestrator.py::TestValidateEdgeCases::test_validate_without_rendered_frames_fails_clearly PASSED [ 56%]
+tests/test_orchestrator.py::TestValidateEdgeCases::test_validate_calls_validator_with_first_frame_and_shot PASSED [ 56%]
+tests/test_orchestrator.py::TestGetShotEdgeCases::test_get_shot_without_world_state_raises PASSED [ 57%]
+tests/test_orchestrator.py::TestGetShotEdgeCases::test_get_shot_unknown_shot_id_raises PASSED [ 57%]
+tests/test_orchestrator.py::TestRenderWithMockRenderer::test_full_pipeline_with_mocked_renderer PASSED [ 58%]
+tests/test_orchestrator.py::TestRenderWithMockRenderer::test_render_passes_duration_from_world_state PASSED [ 58%]
+tests/test_orchestrator.py::TestValidationSkipping::test_validation_skipped_by_default PASSED [ 58%]
+tests/test_orchestrator.py::TestValidationSkipping::test_validation_not_skipped_when_configured PASSED [ 59%]
+tests/test_orchestrator.py::TestProgressHooks::test_on_progress_called_for_every_task PASSED [ 59%]
+tests/test_orchestrator.py::TestProgressHooks::test_on_shot_update_called_on_failure PASSED [ 59%]
+tests/test_orchestrator.py::TestCancel::test_cancel_clears_tasks PASSED  [ 60%]
+tests/test_orchestrator.py::TestUnknownTaskType::test_unknown_task_type_is_skipped_not_fatal PASSED [ 60%]
+tests/test_orchestrator.py::TestFullPipelineRealGodotIntegration::test_full_pipeline_produces_real_frames SKIPPEDration test) [ 61%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_dummy_providers_are_always_valid PASSED [ 61%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_unknown_text_provider_rejected PASSED [ 61%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_gemini_without_api_key_rejected PASSED [ 62%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_gemini_with_placeholder_key_rejected PASSED [ 62%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_gemini_with_real_looking_key_accepted PASSED [ 62%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_huggingface_without_repo_id_rejected PASSED [ 63%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_diffusers_without_repo_id_rejected PASSED [ 63%]
+tests/test_provider_factory.py::TestValidateProviderConfig::test_multiple_problems_all_reported PASSED [ 64%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_text_provider_dummy PASSED [ 64%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_vision_provider_dummy PASSED [ 64%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_image_provider_dummy PASSED [ 65%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_text_provider_unknown_raises PASSED [ 65%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_huggingface_provider_lazy_constructs_without_loading_model PASSED [ 65%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_huggingface_provider_requires_repo_id PASSED [ 66%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_huggingface_vision_provider_lazy_constructs_without_loading_model PASSED [ 66%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_diffusers_image_provider_lazy_constructs_without_loading_model PASSED [ 67%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_gemini_text_provider_without_key_raises_config_error PASSED [ 67%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_ollama_text_provider_raises_not_implemented_clearly PASSED [ 67%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_ollama_vision_provider_raises_not_implemented_clearly PASSED [ 68%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_vision_provider_unknown_raises PASSED [ 68%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_get_image_provider_unknown_raises PASSED [ 68%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_vision_gemini_key_falls_back_to_main_key PASSED [ 69%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_vision_gemini_key_prefers_dedicated_key_when_set PASSED [ 69%]
+tests/test_provider_factory.py::TestGetProviderWiring::test_image_api_key_falls_back_to_main_key PASSED [ 70%]
+tests/test_scene_composer.py::TestProjectInitialization::test_creates_project_file PASSED [ 70%]
+tests/test_scene_composer.py::TestProjectInitialization::test_creates_default_scene PASSED [ 70%]
+tests/test_scene_composer.py::TestProjectInitialization::test_does_not_overwrite_existing_project_file PASSED [ 71%]
+tests/test_scene_composer.py::TestComposeShot::test_missing_character_asset_raises PASSED [ 71%]
+tests/test_scene_composer.py::TestComposeShot::test_composes_scene_with_no_characters PASSED [ 71%]
+tests/test_scene_composer.py::TestComposeShot::test_composes_scene_with_one_character PASSED [ 72%]
+tests/test_scene_composer.py::TestComposeShot::test_does_not_use_ext_resource_for_dynamic_images PASSED [ 72%]
+tests/test_scene_composer.py::TestComposeShot::test_scene_filename_matches_shot_id PASSED [ 73%]
+tests/test_scene_composer.py::TestComposeShot::test_multiple_characters_get_distinct_positions PASSED [ 73%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_scale_applied_per_camera_angle[wide shot-0.5] PASSED [ 73%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_scale_applied_per_camera_angle[medium shot-1.0] PASSED [ 74%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_scale_applied_per_camera_angle[close-up-1.8] PASSED [ 74%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_scale_applied_per_camera_angle[overhead-0.7] PASSED [ 74%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_scale_applied_per_camera_angle[some totally unrecognized angle-1.0] PASSED [ 75%]
+tests/test_scene_composer.py::TestCameraAngleScaling::test_camera_angle_matching_is_case_insensitive PASSED [ 75%]
+tests/test_scene_composer.py::TestLightingModulate::test_lighting_keywords_affect_modulate[dim, shadowy warehouse-True] PASSED [ 76%]
+tests/test_scene_composer.py::TestLightingModulate::test_lighting_keywords_affect_modulate[dark and cold-True] PASSED [ 76%]
+tests/test_scene_composer.py::TestLightingModulate::test_lighting_keywords_affect_modulate[bright daylight-False] PASSED [ 76%]
+tests/test_scene_composer.py::TestLightingModulate::test_lighting_keywords_affect_modulate[harsh overhead lighting-False] PASSED [ 77%]
+tests/test_scene_composer.py::TestLightingModulate::test_lighting_keywords_affect_modulate[completely unremarkable lighting-None] PASSED [ 77%]
+tests/test_scene_composer.py::TestSanitizeShotId::test_normal_id_unchanged PASSED [ 77%]
+tests/test_scene_composer.py::TestSanitizeShotId::test_special_characters_replaced PASSED [ 78%]
+tests/test_scene_composer.py::TestSanitizeShotId::test_empty_falls_back_to_shot PASSED [ 78%]
+tests/test_scene_composer.py::TestConfigurableResolution::test_default_resolution_matches_godot_default PASSED [ 79%]
+tests/test_scene_composer.py::TestConfigurableResolution::test_custom_resolution_applied_from_config PASSED [ 79%]
+tests/test_scene_composer.py::TestConfigurableResolution::test_custom_resolution_written_to_project_file PASSED [ 79%]
+tests/test_scene_composer.py::TestConfigurableResolution::test_layout_scales_with_custom_viewport PASSED [ 80%]
+tests/test_validator_manager.py::TestParseVerdict::test_pass_uppercase PASSED [ 80%]
+tests/test_validator_manager.py::TestParseVerdict::test_fail_uppercase PASSED [ 80%]
+tests/test_validator_manager.py::TestParseVerdict::test_case_insensitive PASSED [ 81%]
+tests/test_validator_manager.py::TestParseVerdict::test_pass_on_own_line_with_reason_below PASSED [ 81%]
+tests/test_validator_manager.py::TestParseVerdict::test_empty_response_fails_closed PASSED [ 82%]
+tests/test_validator_manager.py::TestParseVerdict::test_ambiguous_response_fails_closed PASSED [ 82%]
+tests/test_validator_manager.py::TestParseVerdict::test_no_reason_gets_placeholder PASSED [ 82%]
+tests/test_validator_manager.py::TestParseVerdict::test_markdown_bold_verdict PASSED [ 83%]
+tests/test_validator_manager.py::TestParseVerdict::test_label_prefixed_verdict PASSED [ 83%]
+tests/test_validator_manager.py::TestParseVerdict::test_bullet_prefixed_verdict PASSED [ 83%]
+tests/test_validator_manager.py::TestParseVerdict::test_answer_label_prefix PASSED [ 84%]
+tests/test_validator_manager.py::TestParseVerdict::test_verdict_mentioned_later_in_prose_still_fails_closed PASSED [ 84%]
+tests/test_validator_manager.py::TestParseVerdict::test_verdict_alone_on_first_line_reason_on_next PASSED [ 85%]
+tests/test_validator_manager.py::TestFrameValidationReport::test_passed_true_when_all_results_pass PASSED [ 85%]
+tests/test_validator_manager.py::TestFrameValidationReport::test_passed_false_if_any_result_fails PASSED [ 85%]
+tests/test_validator_manager.py::TestFrameValidationReport::test_failure_feedback_combines_only_failures PASSED [ 86%]
+tests/test_validator_manager.py::TestFrameValidationReport::test_failure_feedback_empty_when_all_pass PASSED [ 86%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_all_pass_when_vision_provider_says_pass PASSED [ 86%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_all_fail_when_vision_provider_says_fail PASSED [ 87%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_character_validator_passes_trivially_with_no_characters PASSED [ 87%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_character_validator_passes_trivially_with_no_world_state PASSED [ 88%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_temporal_validator_passes_trivially_for_first_shot PASSED [ 88%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_temporal_validator_runs_when_previous_frame_given PASSED [ 88%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_missing_previous_frame_file_passes_trivially PASSED [ 89%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_vision_provider_exception_fails_closed PASSED [ 89%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_character_validator_includes_appearance_notes_in_prompt PASSED [ 89%]
+tests/test_validator_manager.py::TestValidateFrameIntegration::test_character_referenced_but_never_registered_in_world_state PASSED [ 90%]
+tests/test_video_assembler.py::TestSanitize::test_normal_name PASSED     [ 90%]
+tests/test_video_assembler.py::TestSanitize::test_special_chars PASSED   [ 91%]
+tests/test_video_assembler.py::TestAssembleValidation::test_missing_ffmpeg_raises PASSED [ 91%]
+tests/test_video_assembler.py::TestAssembleValidation::test_empty_shot_frames_raises FAILED [ 91%]
+tests/test_video_assembler.py::TestAssembleValidation::test_shot_with_no_frames_raises FAILED [ 92%]
+tests/test_video_assembler.py::TestAssembleValidation::test_frame_pattern_requires_trailing_digits FAILED [ 92%]
+tests/test_video_assembler.py::TestAssembleRealEncoding::test_single_shot_produces_valid_mp4 SKIPPED [ 92%]
+tests/test_video_assembler.py::TestAssembleRealEncoding::test_multi_shot_concatenates_in_order SKIPPED [ 93%]
+tests/test_video_assembler.py::TestAssembleRealEncoding::test_output_written_to_storage_output_dir SKIPPED [ 93%]
+tests/test_video_assembler.py::TestAssembleRealEncoding::test_custom_output_name_respected SKIPPED [ 94%]
+tests/test_world_state.py::test_add_and_get_character PASSED             [ 94%]
+tests/test_world_state.py::test_get_unknown_character_returns_none PASSED [ 94%]
+tests/test_world_state.py::test_add_character_twice_bumps_version PASSED [ 95%]
+tests/test_world_state.py::test_update_character_requires_existing_character PASSED [ 95%]
+tests/test_world_state.py::test_update_character_records_latest_state PASSED [ 95%]
+tests/test_world_state.py::test_update_character_state_history_returns_latest_only PASSED [ 96%]
+tests/test_world_state.py::test_add_character_extra_metadata_preserved PASSED [ 96%]
+tests/test_world_state.py::test_list_characters PASSED                   [ 97%]
+tests/test_world_state.py::test_add_and_get_object PASSED                [ 97%]
+tests/test_world_state.py::test_events_scoped_to_shot PASSED             [ 97%]
+tests/test_world_state.py::test_add_and_get_shot PASSED                  [ 98%]
+tests/test_world_state.py::test_set_shot_status PASSED                   [ 98%]
+tests/test_world_state.py::test_list_shots PASSED                        [ 98%]
+tests/test_world_state.py::test_persists_across_reopen PASSED            [ 99%]
+tests/test_world_state.py::test_context_manager_closes_connection PASSED [ 99%]
+tests/test_world_state.py::test_failed_write_rolls_back_rather_than_partially_committing PASSED [100%]
+
+=================================== FAILURES ===================================
+_____________ TestAssembleValidation.test_empty_shot_frames_raises _____________
+
+self = <test_video_assembler.TestAssembleValidation object at 0x7f5578294490>
+assembler = <src.integrations.ffmpeg.video_assembler.VideoAssembler object at 0x7f55780daed0>
+
+    def test_empty_shot_frames_raises(self, assembler):
+>       with pytest.raises(FFmpegError, match="No shots"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'No shots'
+E         Actual message: "ffmpeg binary not found: 'ffmpeg'"
+
+tests/test_video_assembler.py:51: AssertionError
+____________ TestAssembleValidation.test_shot_with_no_frames_raises ____________
+
+self = <test_video_assembler.TestAssembleValidation object at 0x7f5578296190>
+assembler = <src.integrations.ffmpeg.video_assembler.VideoAssembler object at 0x7f55780def10>
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_shot_with_no_frames_raise0')
+
+    def test_shot_with_no_frames_raises(self, assembler, tmp_path):
+>       with pytest.raises(FFmpegError, match="no frames"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'no frames'
+E         Actual message: "ffmpeg binary not found: 'ffmpeg'"
+
+tests/test_video_assembler.py:55: AssertionError
+______ TestAssembleValidation.test_frame_pattern_requires_trailing_digits ______
+
+self = <test_video_assembler.TestAssembleValidation object at 0x7f5578297e10>
+assembler = <src.integrations.ffmpeg.video_assembler.VideoAssembler object at 0x7f5578326350>
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_frame_pattern_requires_tr0')
+
+    def test_frame_pattern_requires_trailing_digits(self, assembler, tmp_path):
+        bad_frame = tmp_path / "no_digits.png"
+        bad_frame.write_bytes(b"fake")
+>       with pytest.raises(FFmpegError, match="trailing digits"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'trailing digits'
+E         Actual message: "ffmpeg binary not found: 'ffmpeg'"
+
+tests/test_video_assembler.py:61: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.11.16-final-0 _______________
+
+Name                                        Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------
+src/core/__init__.py                            0      0   100%
+src/core/asset_manager/__init__.py              2      0   100%
+src/core/asset_manager/asset_manager.py        89      0   100%
+src/core/director/__init__.py                   2      0   100%
+src/core/director/director.py                 137      1    99%   287
+src/core/orchestrator/__init__.py               2      0   100%
+src/core/orchestrator/orchestrator.py         145     24    83%   42, 166, 185, 210, 213-233, 244-261
+src/core/repair/__init__.py                     2      2     0%   1-3
+src/core/repair/repair_engine.py               20     20     0%   13-52
+src/core/scene_composer/__init__.py             2      0   100%
+src/core/scene_composer/scene_composer.py      86      0   100%
+src/core/validator/__init__.py                  2      0   100%
+src/core/validator/validator_manager.py        88      0   100%
+src/core/world_state/__init__.py                2      0   100%
+src/core/world_state/world_state.py           108      2    98%   168, 230
+src/providers/__init__.py                       0      0   100%
+src/providers/anthropic_provider.py            61      4    93%   40, 107-109
+src/providers/base.py                          12      0   100%
+src/providers/diffusers_provider.py            55      6    89%   62, 69-70, 86-88
+src/providers/dummy_provider.py                55      1    98%   31
+src/providers/gemini_provider.py               76      8    89%   39, 58, 96-98, 130-132
+src/providers/hf_common.py                     44      5    89%   42-43, 47-49
+src/providers/huggingface_provider.py          83     10    88%   77, 91-93, 129, 133, 145-147, 152
+src/providers/ollama_provider.py               13      2    85%   24, 36
+src/providers/openai_provider.py               76      7    91%   36, 94-96, 114-116
+src/providers/provider_factory.py              96     15    84%   60, 62, 95-97, 102-104, 147-150, 155-158, 200-203
+-------------------------------------------------------------------------
+TOTAL                                        1258    107    91%
+=========================== short test summary info ============================
+FAILED tests/test_video_assembler.py::TestAssembleValidation::test_empty_shot_frames_raises - AssertionError: Regex pattern did not match.
+  Expected regex: 'No shots'
+  Actual message: "ffmpeg binary not found: 'ffmpeg'"
+FAILED tests/test_video_assembler.py::TestAssembleValidation::test_shot_with_no_frames_raises - AssertionError: Regex pattern did not match.
+  Expected regex: 'no frames'
+  Actual message: "ffmpeg binary not found: 'ffmpeg'"
+FAILED tests/test_video_assembler.py::TestAssembleValidation::test_frame_pattern_requires_trailing_digits - AssertionError: Regex pattern did not match.
+  Expected regex: 'trailing digits'
+  Actual message: "ffmpeg binary not found: 'ffmpeg'"
+=================== 3 failed, 258 passed, 6 skipped in 8.36s ===================
