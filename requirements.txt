@@ -7,6 +7,8 @@ pyyaml>=6.0.1
 pydantic>=2.7.0
 PyQt6>=6.11.0
 requests>=2.32.0
+pillow>=10.0.0
+opentimelineio>=0.17.0
 pytest>=8.0.0
 pytest-cov>=5.0.0
 
@@ -38,9 +40,7 @@ huggingface_hub>=0.25.0
 # Install separately: pip install diffusers transformers torch accelerate
 # diffusers>=0.27.0
 
-# ── Scene interchange (optional, Phase 9+) ───────────────────────────
-# These are large native packages. Only needed for OpenUSD and timeline export.
-# Install separately when you reach that phase:
-#   pip install usd-core opentimelineio
+# ── Scene interchange (optional) ─────────────────────────────────────
+# opentimelineio is now a core dependency (timeline export, above).
+# OpenUSD remains an optional, not-yet-implemented integration:
 # usd-core>=23.11
-# opentimelineio>=0.15.0

@@ -7,6 +7,7 @@ production without re-deriving it from scratch at every step.
 """
 
 import json
+import re
 import logging
 import sqlite3
 from contextlib import contextmanager
@@ -290,9 +291,16 @@ class WorldStateManager:
                 "UPDATE shots SET status = ? WHERE shot_id = ?", (status, shot_id)
             )
 
+    @staticmethod
+    def _natural_key(shot_id: str):
+        """Sort key so shot_2 < shot_10 (plain string order puts shot_10 first)."""
+        return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", shot_id)]
+
     def list_shots(self) -> List[Dict[str, Any]]:
+        """All shots in natural order (shot_1, shot_2, ..., shot_10)."""
         with self._cursor() as cur:
-            rows = cur.execute("SELECT * FROM shots ORDER BY shot_id").fetchall()
+            rows = cur.execute("SELECT * FROM shots").fetchall()
+        rows = sorted(rows, key=lambda r: self._natural_key(r["shot_id"]))
         return [
             {"shot_id": r["shot_id"], "status": r["status"], **json.loads(r["metadata_json"])}
             for r in rows

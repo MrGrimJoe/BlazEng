@@ -10,17 +10,28 @@
 |-------|-------|--------|----------|
 | **1** | Core modules | ✅ **Done** (Aug 23, 2026) — WorldStateManager, Director, AssetManager, provider layer all implemented and tested (101 tests, 89% coverage at the time) | — |
 | **2** | Rendering integration | ✅ **Done** (Aug 24, 2026) — SceneComposer, GodotRenderer, PipelineOrchestrator implemented and verified against a real, actually-downloaded Godot 4.7.2 binary (not just mocked) | — |
-| **3** | Validation & repair | 🔧 Stub — next up | — |
-| **4** | Assembly & export | 🔧 Stub | — |
-| **5** | UI implementation | 🔧 Stub | — |
-| **6** | Testing & polish | 📋 Planned | — |
+| **3** | Validation & repair | ✅ **Done** — four validators, RepairEngine, retry loop wired into the orchestrator (off by default; see `skip_validation`) | — |
+| **4** | Assembly & export | ✅ **Done** — ffmpeg assembly verified against real ffmpeg; OpenTimelineIO export (Oct 2026) | — |
+| **5** | UI implementation | ✅ **Done** (Oct 2026) — timeline, shot viewer with frame scrubber, asset browser, world-state viewer, settings dialog, threaded pipeline worker | — |
+| **6** | Testing & polish | 🔧 In progress — headless CLI, Blender backend and packaging done; benchmarks, installers, example projects remain | — |
 
-**As of August 24, 2026**: The full pipeline runs end-to-end for real — prompt
-→ shot plan → asset generation → scene composition → **actual Godot-rendered
-video frames** — with dummy providers standing in for the LLM/image-gen
-calls (so it's testable offline) but genuine Godot rendering underneath.
-159 tests pass, 95% coverage, including two tests that shell out to a real
-Godot binary rather than mocking the subprocess call. Phases 3–6 remain stubs.
+**As of October 2, 2026**: v0.9.0. The pipeline runs end to end from a prompt
+to an MP4 plus an `.otio` timeline, either from the desktop UI or headless via
+`python -m src.cli run ...`, with either render backend: Godot (2D sprites) or
+Blender (3D scene, perspective camera). The Blender path was verified against
+a real Blender 4.0.2 under Xvfb, not mocked.
+
+**Still unverified in this project's own environment** (unchanged since Phase 1):
+live Gemini / OpenAI / Anthropic calls, real HuggingFace / Diffusers model
+downloads, and importing the `.otio` file into Premiere or DaVinci Resolve.
+
+**Known gaps worth knowing about**
+- The Python package is still named `src`. Renaming it to `blazeng` before a
+  PyPI release is mechanical but touches every import.
+- Blender renders character *cut-outs as image planes*: lighting, shadows and
+  camera moves are 3D, but the characters themselves are flat. Rigged or
+  generated 3D characters are future work.
+- OpenUSD export is not implemented.
 
 ---
 

@@ -79,6 +79,18 @@ llm_provider: gemini
 # configured binary is silently ignored in favor of the ./bin/godot default.
 godot_binary_path: ./bin/godot
 blender_path: blender
+
+# ── Render backend ──
+#   auto    -> Godot if its binary exists, otherwise Blender if it is on PATH
+#   godot   -> 2D sprite composition (fast, flat look)
+#   blender -> real 3D scene: perspective camera with a slow push-in, lighting
+#              and shadows. Runs headless under xvfb-run on Linux (apt install
+#              blender xvfb); EEVEE needs an OpenGL context even in background mode.
+renderer: auto
+# Blender engine: eevee (default, ~1-2 s/frame at 640x360 on a CPU-only box),
+# cycles (path traced, far slower, higher quality) or workbench (fastest preview).
+blender_engine: eevee
+blender_samples: 16
 # Bare "ffmpeg" resolves via PATH if you already have it installed
 # (VideoAssembler looks it up with shutil.which). setup.py overwrites
 # this with a concrete downloaded path if it installs its own copy.

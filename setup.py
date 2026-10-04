@@ -203,6 +203,9 @@ ollama_model: llama3
 # (src/integrations/godot/renderer.py), not "godot_path".
 godot_binary_path: {godot_path  or "./bin/godot"}
 blender_path:      blender
+renderer:          auto          # auto | godot | blender
+blender_engine:    eevee         # eevee | cycles | workbench
+blender_samples:   16
 ffmpeg_path:       {ffmpeg_path or "ffmpeg"}
 
 storage_path:            ./storage
@@ -211,8 +214,8 @@ render_timeout_seconds:  300
 render_fps:              24
 render_width:            1152
 render_height:           648
-# ValidatorManager/RepairEngine aren't implemented yet (Phase 3) — leave
-# true so the pipeline marks shots rendered instead of raising on every shot.
+# Validation + auto-repair are implemented but need a vision-capable model
+# and cost extra API calls, so they are off by default. Set to false to enable.
 skip_validation:         true
 """
     (ROOT / "config.yaml").write_text(cfg)

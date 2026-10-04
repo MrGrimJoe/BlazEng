@@ -61,7 +61,9 @@ def validate_provider_config(config: Dict[str, Any]) -> Tuple[bool, str]:
     if image_p not in _IMAGE_PROVIDERS:
         problems.append(f"Unknown image_provider '{image_p}' (expected one of {sorted(_IMAGE_PROVIDERS)})")
 
-    for provider_name in (text_p, vision_p, image_p):
+    # dict.fromkeys de-duplicates while keeping order, so a provider used for
+    # several slots reports a missing key once, not once per slot.
+    for provider_name in dict.fromkeys((text_p, vision_p, image_p)):
         key_field = _KEY_CONFIG_FIELD.get(provider_name)
         if key_field is None:
             continue

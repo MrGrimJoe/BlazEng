@@ -4,38 +4,32 @@
 
 ---
 
-## Status: Complete (August 25, 2026)
+## Status: v0.9.0 — feature-complete (October 2, 2026)
 
-BlazEng is a finished, working pipeline: give it a story prompt, and it
-plans the shots, generates the character art, builds the 3D scenes,
-renders real video frames, checks its own output for mistakes and fixes
-them automatically, and assembles the final video — all the way through.
-Every stage is implemented, not stubbed out.
+Give BlazEng a story prompt and it plans the shots, generates character art,
+composes scenes, renders real frames with **Godot (2D) or Blender (3D)**,
+optionally validates and auto-repairs them, and assembles an MP4 plus an
+editable `.otio` timeline. Run it from the **desktop app** or fully
+**headless from the command line**.
 
-It supports Gemini, OpenAI, and Claude for the AI side, plus fully local
-models through HuggingFace and Diffusers if you'd rather not use a cloud
-API at all — mix and match per stage however you like.
+It supports Gemini, OpenAI and Claude for the AI side, plus fully local models
+through HuggingFace and Diffusers. Mix and match per stage.
 
-**How it's been checked**: 267 automated tests, 90%+ coverage on the core
-pipeline. The rendering and video-export stages were verified against a
-real Godot engine binary and real ffmpeg — not just written against
-documentation — including catching and fixing several real bugs that
-only showed up once actual video frames came out the other end (see
-`ROADMAP.md` for the details, if you're curious what broke and how).
+**How it's been checked**: 355 automated tests (2 skip when the Godot binary is absent). Rendering and encoding were
+exercised against real binaries (Godot 4.7.2, Blender 4.0.2 under Xvfb, ffmpeg),
+and the UI is tested offscreen with a real worker thread, including cancel,
+failure and GUI-responsiveness cases.
 
-**One thing worth knowing**: the cloud AI providers (Gemini, OpenAI,
-Claude) and the local HuggingFace/Diffusers path are built against each
-provider's official, documented API and tested thoroughly against
-realistic mocked responses — but none of them have been run against a
-live API key or a real model download in this project's own development
-environment. That's the one box nobody's checked yet. If you're the
-first to run one for real, a quick heads-up via an issue if anything
-about the live behavior doesn't match would be appreciated.
+**Not yet verified** (nobody has run these in this project's development
+environment): the cloud AI providers against a live API key, the local
+HuggingFace/Diffusers path with a real model download, and importing the
+`.otio` into Premiere / DaVinci Resolve. If you're first to try one, an issue
+reporting anything that doesn't match would be appreciated.
 
-The desktop UI (timeline scrubber, asset browser, world-state viewer)
-is the one visual layer still ahead — the pipeline itself runs fully
-today through the Python API / config file, and the UI is a
-nice-to-have on top of a system that already works end to end.
+**Good to know**: validation + auto-repair is implemented but **off by default**
+(`skip_validation: true`) because it needs a vision-capable model and extra
+API calls. Blender characters are flat image planes in a genuinely 3D scene
+(real camera, lighting, shadows); rigged 3D characters are future work.
 
 ---
 
@@ -53,7 +47,10 @@ nice-to-have on top of a system that already works end to end.
 - **RepairEngine + PipelineOrchestrator**: Automatically retries and fixes shots that fail validation, then coordinates the whole run start to finish
 - **VideoAssembler**: Encodes and stitches the final MP4 via ffmpeg
 - **Provider layer**: Gemini, OpenAI, Anthropic, HuggingFace, and Diffusers — including a token-prompt flow for HuggingFace models that turn out to need authentication, so a gated model asks for what it needs instead of just failing
-- **Qt6 UI Framework**: Two-panel desktop application structure, ready for the visual layer described above
+- **BlenderRenderer**: Headless 3D rendering (EEVEE / Cycles / Workbench) with a perspective camera, lighting and shadows, driven from a renderer-neutral scene description; selectable with `renderer: godot | blender | auto`
+- **Headless CLI** (`python -m src.cli`): `run`, `doctor`, `version`; scriptable exit codes and `--json` output
+- **OpenTimelineIO export**: every run also writes an `.otio` timeline, one clip per shot with scene metadata
+- **Desktop UI (PyQt6)**: shot timeline, frame-scrubbing shot viewer, asset browser with thumbnails, world-state viewer, settings dialog, cancellable background worker
 
 ---
 
@@ -114,56 +111,64 @@ The setup script will:
 
 ### Make Your First Video
 
-The desktop UI's visual layer (timeline, asset browser) isn't built yet
-— see [Status](#status-complete-august-25-2026) — but the pipeline
-itself is fully working right now via a short Python script:
+**Option 1 — command line (works on a server, no display needed)**
 
-```python
-import main
-
-config = main.load_config()
-main.ensure_storage(config)
-director, orchestrator, world_state, asset_manager = main.build_pipeline(config)
-
-# Turn a prompt into a shot plan
-plan = director.generate_production_plan(
-    "A detective in 1940s rain discovers a clue at an abandoned warehouse."
-)
-
-# Build the task schedule (asset generation → scene composition → render → validate)
-tasks = director.create_task_schedule(plan)
-orchestrator.load_task_schedule(tasks)
-
-# Run the whole pipeline: generates art, builds scenes, renders real
-# frames, validates and auto-repairs anything that looks wrong
-success = orchestrator.run_pipeline()
-print("Success:", success)
-
-# Stitch the rendered frames into a final video
-from src.integrations.ffmpeg.video_assembler import VideoAssembler
-assembler = VideoAssembler(config)
-output_path = assembler.assemble(orchestrator._rendered_frames)
-print("Video saved to:", output_path)
+```bash
+python -m src.cli doctor                       # check ffmpeg / renderer / providers
+python -m src.cli run "A detective in 1940s rain discovers a clue at an abandoned warehouse." \
+    --dummy --renderer blender --resolution 640x360 --fps 12
+# -> storage/output/final.mp4  and  storage/output/final.otio
 ```
 
-That's the whole pipeline, prompt to finished video. Swap providers,
-resolution, or repair settings in `config.yaml` without touching this
-script. Want to try it without spending on API calls first? Set
-`text_provider`/`vision_provider`/`image_provider: dummy` in
-`config.yaml` — the pipeline runs the exact same way with placeholder
-content instead of real generated art, which is a good way to confirm
-your Godot/ffmpeg setup works before pointing it at a real model.
+`--dummy` uses offline placeholder providers (no API keys, no cost), a good way
+to confirm your renderer and ffmpeg work before pointing it at a real model.
+Drop it to use the providers in `config.yaml`. Other useful flags: `--engine
+eevee|cycles|workbench`, `--validate`, `--prompt-file story.txt`, `--json`,
+`--no-timeline`. Exit codes: `0` success, `1` video built but some shots failed,
+`2` nothing usable produced, `3` bad usage/config.
 
-### Launching the (In-Progress) Desktop UI
+**Option 2 — desktop app**
 
 ```bash
 python main.py
 ```
 
-This opens the Qt6 window — useful for confirming your setup works and
-for building the timeline/asset-browser UI described in `ROADMAP.md`
-Phase 5, but it doesn't yet drive the pipeline itself. Use the script
-above for that until Phase 5 lands.
+Type a prompt, press **Generate video** (Ctrl+Enter). The timeline fills in as
+shots compose and render; click a shot to scrub its frames; **Settings…**
+switches providers and the render backend; **Cancel** stops after the current
+step. Heavy work runs on a background thread, so the window stays responsive.
+
+**Option 3 — Python API**
+
+```python
+from src.pipeline import load_config, ensure_storage, build_pipeline
+from src.integrations.ffmpeg.video_assembler import VideoAssembler
+
+config = load_config()
+ensure_storage(config)
+director, orchestrator, world_state, asset_manager = build_pipeline(config)
+
+plan = director.generate_production_plan("A detective in 1940s rain ...")
+orchestrator.load_task_schedule(director.create_task_schedule(plan))
+success = orchestrator.run_pipeline()
+
+frames = orchestrator.rendered_frames          # {shot_id: [frame paths]}
+print(VideoAssembler(config).assemble(frames))
+```
+
+### Rendering with Blender (headless)
+
+```bash
+# Debian/Ubuntu
+sudo apt install blender xvfb ffmpeg
+```
+
+Set `renderer: blender` in `config.yaml` (or pass `--renderer blender`). EEVEE
+needs an OpenGL context even in background mode, so on Linux the renderer runs
+Blender under `xvfb-run` (Mesa software rendering), and works on machines with
+no GPU. On a CPU-only box expect roughly 1-2 s/frame at 640x360 with EEVEE;
+`cycles` is much slower. Raise `render_timeout_seconds` for long shots at high
+resolution.
 
 ---
 
@@ -280,21 +285,22 @@ See `ROADMAP.md` for the full plan. Summary:
 
 ### Phase 4: Assembly & Export — ✅ Done
 - [x] Implement FFmpeg integration (verified against real ffmpeg)
-- [ ] Premiere/DaVinci timeline export (OpenTimelineIO) — not yet started
+- [x] OpenTimelineIO timeline export (valid per the OTIO library; editor import not yet confirmed)
 - [x] End-to-end pipeline test (real Godot render → real video file)
 
-### Phase 5: UI & Polish — remaining
-- [ ] Implement timeline view
-- [ ] Implement asset browser
-- [ ] Implement world state viewer
-- [ ] Implement shot preview player
+### Phase 5: UI — ✅ Done
+- [x] Timeline view
+- [x] Asset browser
+- [x] World state viewer
+- [x] Shot preview with frame scrubber
+- [x] Headless CLI and Blender render backend (added in v0.9.0)
 
 ### Phase 6: Optimization & Distribution — remaining
 - [ ] Performance benchmarking
 - [ ] PyInstaller packaging for Windows/macOS/Linux
 - [ ] Example projects
 
-267 tests total, 90%+ coverage on the implemented modules. See `ROADMAP.md`
+355 tests total. See `ROADMAP.md`
 for the full write-up, including the real bugs found while verifying
 Phases 2 and 4 against actual Godot and ffmpeg binaries.
 

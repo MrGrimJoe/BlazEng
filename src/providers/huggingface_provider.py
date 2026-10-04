@@ -34,6 +34,11 @@ try:
 except ImportError:  # pragma: no cover - exercised only when transformers isn't installed
     _TRANSFORMERS_AVAILABLE = False
 
+    def _hf_pipeline(*args, **kwargs):  # noqa: D401 - placeholder so the name always exists
+        """Placeholder used when transformers is missing; never reached in practice
+        because _require_transformers() raises first."""
+        raise ImportError("transformers is not installed")
+
 
 class HuggingFaceConfigError(Exception):
     """Raised when the HuggingFace provider is misconfigured (no repo_id, etc.)."""

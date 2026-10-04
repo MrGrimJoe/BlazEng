@@ -166,3 +166,39 @@ class TestGetProviderWiring:
         }
         provider = get_image_provider(config)
         assert provider is not None
+
+
+class TestValidationMessages:
+    def test_same_provider_in_all_slots_reports_missing_key_once(self):
+        ok, msg = validate_provider_config(
+            {"text_provider": "gemini", "vision_provider": "gemini", "image_provider": "gemini",
+             "gemini_api_key": "GEMINI_API_KEY_HERE"}
+        )
+        assert not ok and msg.count("gemini_api_key is not set") == 1
+
+
+class TestDummyTextProviderPlan:
+    def test_returns_valid_plan_when_asked_for_shots(self):
+        import json
+
+        raw = get_text_provider({"text_provider": "dummy"}).generate(
+            "story", system_instruction='respond with JSON {"shots": [...]}'
+        )
+        assert len(json.loads(raw)["shots"]) == 3
+
+    def test_plain_prompt_still_gets_canned_text(self):
+        assert get_text_provider({"text_provider": "dummy"}).generate("hi").startswith("[DUMMY")
+
+    def test_dummy_image_is_a_real_transparent_png(self, tmp_path):
+        from PIL import Image
+
+        p = get_image_provider({"image_provider": "dummy"}).generate_image("a", tmp_path / "a.png")
+        with Image.open(p) as im:
+            assert im.mode == "RGBA" and im.size == (128, 256)
+            assert im.getpixel((0, 0))[3] == 0  # transparent corner
+
+    def test_dummy_images_differ_per_prompt(self, tmp_path):
+        prov = get_image_provider({"image_provider": "dummy"})
+        a = prov.generate_image("alice", tmp_path / "a.png").read_bytes()
+        b = prov.generate_image("bob", tmp_path / "b.png").read_bytes()
+        assert a != b

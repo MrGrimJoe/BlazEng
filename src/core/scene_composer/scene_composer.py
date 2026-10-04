@@ -132,8 +132,43 @@ class SceneComposer:
 
         scene_path = self.scenes_dir / f"{_sanitize_shot_id(shot.shot_id)}.tscn"
         scene_path.write_text(self._build_tscn(gdscript))
+        self._write_scene_json(shot, placements, modulate, scene_path)
         logger.info(f"Composed scene for {shot.shot_id}: {scene_path}")
         return scene_path
+
+    @staticmethod
+    def scene_json_path(scene_path: Path) -> Path:
+        """Location of the renderer-neutral JSON that accompanies a .tscn."""
+        return Path(scene_path).with_suffix(".scene.json")
+
+    def _write_scene_json(self, shot, placements, modulate, scene_path: Path) -> Path:
+        """Write the renderer-neutral scene description (schema version 1).
+
+        Consumed by the Blender backend (see blender_scene.py for the schema).
+        Positions are normalised to [-1, 1] across the frame so a renderer
+        doesn't need to know SceneComposer's pixel viewport.
+        """
+        half_w = self.viewport_width / 2.0
+        data = {
+            "version": 1,
+            "shot_id": shot.shot_id,
+            "camera_angle": shot.camera_angle,
+            "lighting": shot.lighting,
+            "modulate": list(modulate),
+            "duration_seconds": shot.duration_seconds,
+            "characters": [
+                {
+                    "name": p.name,
+                    "image": str(p.image_path),
+                    "x": round((p.position[0] - half_w) / half_w, 4),
+                    "scale": p.scale,
+                }
+                for p in placements
+            ],
+        }
+        json_path = self.scene_json_path(scene_path)
+        json_path.write_text(json.dumps(data, indent=2))
+        return json_path
 
     # ------------------------------------------------------------------
     # Layout

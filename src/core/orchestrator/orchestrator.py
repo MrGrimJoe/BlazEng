@@ -54,6 +54,7 @@ class PipelineOrchestrator:
         validator_mgr,
         repair_engine,
         godot_renderer=None,
+        renderer=None,
     ):
         self.config = config
         self.world_state = world_state
@@ -61,7 +62,9 @@ class PipelineOrchestrator:
         self.scene_composer = scene_composer
         self.validator_mgr = validator_mgr
         self.repair_engine = repair_engine
-        self.godot_renderer = godot_renderer
+        # `renderer` is the backend-neutral name (GodotRenderer or BlenderRenderer);
+        # `godot_renderer` is kept as the attribute/kwarg name for backward compatibility.
+        self.godot_renderer = renderer if renderer is not None else godot_renderer
         self.skip_validation = bool(config.get("skip_validation", True))
 
         self._tasks: List[Any] = []
@@ -69,6 +72,8 @@ class PipelineOrchestrator:
         self._scene_paths: Dict[str, Any] = {}   # shot_id -> Path
         self._rendered_frames: Dict[str, List[Any]] = {}  # shot_id -> [Path, ...]
         self.failures: List[ShotFailure] = []
+        self._cancel_requested = False
+        self.cancelled = False
 
         # Optional UI progress hook: called as (current_index, total_tasks).
         self.on_progress: Optional[Callable[[int, int], None]] = None
@@ -76,6 +81,11 @@ class PipelineOrchestrator:
         self.on_shot_update: Optional[Callable[[str, str, str], None]] = None
 
         logger.info("PipelineOrchestrator ready")
+
+    @property
+    def rendered_frames(self) -> Dict[str, List[Any]]:
+        """shot_id -> rendered frame paths, for every shot that rendered."""
+        return dict(self._rendered_frames)
 
     def load_task_schedule(self, tasks: List[Any]) -> None:
         self._tasks = list(tasks)
@@ -92,6 +102,8 @@ class PipelineOrchestrator:
             raise OrchestratorError("No tasks loaded — call load_task_schedule() first")
 
         total = len(self._tasks)
+        self._cancel_requested = False
+        self.cancelled = False
         dispatch = {
             "generate_asset": self._run_generate_asset,
             "compose_scene": self._run_compose_scene,
@@ -99,7 +111,11 @@ class PipelineOrchestrator:
             "validate": self._run_validate,
         }
 
-        for i, task in enumerate(self._tasks):
+        for i, task in enumerate(list(self._tasks)):
+            if self._cancel_requested:
+                self.cancelled = True
+                logger.info(f"Pipeline cancelled before task {i + 1}/{total}")
+                break
             handler = dispatch.get(task.task_type)
             if handler is None:
                 logger.warning(f"Unknown task type '{task.task_type}', skipping")
@@ -116,7 +132,7 @@ class PipelineOrchestrator:
             if self.on_progress:
                 self.on_progress(i + 1, total)
 
-        success = not self.failures
+        success = not self.failures and not self.cancelled
         logger.info(
             f"Pipeline run complete: {total - len(self.failures)}/{total} tasks "
             f"succeeded, {len(self.failures)} failed"
@@ -124,9 +140,16 @@ class PipelineOrchestrator:
         return success
 
     def cancel(self) -> None:
-        """Clear remaining tasks so a subsequent run_pipeline() call is a no-op."""
+        """Stop the run in progress (if any) before its next task, and clear the schedule.
+
+        Safe to call from another thread (e.g. a GUI button): it only sets a
+        flag that run_pipeline() checks between tasks, so the task currently
+        executing finishes first. A subsequent run_pipeline() call is a no-op
+        until a new schedule is loaded.
+        """
+        self._cancel_requested = True
         self._tasks = []
-        logger.info("Pipeline cancelled")
+        logger.info("Pipeline cancel requested")
 
     # ------------------------------------------------------------------
     # Task handlers
@@ -169,8 +192,8 @@ class PipelineOrchestrator:
         shot_id = task.shot_id
         if self.godot_renderer is None:
             raise OrchestratorError(
-                "No GodotRenderer configured — pass godot_renderer= to "
-                "PipelineOrchestrator, or set godot_binary_path in config.yaml"
+                "No renderer configured (GodotRenderer or BlenderRenderer) — pass renderer= to "
+                "PipelineOrchestrator, or set renderer/godot_binary_path/blender_path in config.yaml"
             )
         scene_path = self._scene_paths.get(shot_id)
         if scene_path is None:
@@ -254,7 +277,7 @@ class PipelineOrchestrator:
         self._scene_paths[shot.shot_id] = scene_path
 
         if self.godot_renderer is None:
-            raise OrchestratorError("No GodotRenderer configured — cannot re-render repaired shot")
+            raise OrchestratorError("No renderer configured (GodotRenderer or BlenderRenderer) — cannot re-render repaired shot")
         frames = self.godot_renderer.render_shot(
             scene_path, shot.shot_id, duration_seconds=shot.duration_seconds
         )

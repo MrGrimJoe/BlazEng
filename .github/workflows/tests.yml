@@ -34,19 +34,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # transformers/diffusers are intentionally NOT in requirements.txt --
-      # they're optional (only needed if someone picks a local HF/diffusers
-      # provider) and pull in real weights on first use. But
-      # test_huggingface_provider.py / test_diffusers_provider.py patch
-      # module-level names (_hf_pipeline, _AutoPipelineForText2Image) that
-      # only exist once the real import succeeds; without these two
-      # installed, that import falls into the except ImportError branch and
-      # the name never gets defined, so mock.patch has nothing to target.
-      # Installing them here doesn't pull in torch and needs no network
-      # beyond PyPI -- these tests never touch a real model.
-      - name: Install optional provider deps needed for test mocking
-        run: pip install transformers diffusers
-
       - name: Run test suite
         id: run_tests
         continue-on-error: true
@@ -102,6 +89,8 @@ jobs:
           director, orchestrator, world_state, asset_manager = main.build_pipeline(config)
           print('Smoke test passed: pipeline builds without error')
           "
+          python -m src.cli version
+          python -m src.cli doctor || true   # informational: Godot/Blender legitimately absent on this job
 
   godot-integration:
     # Separate job from the fast unit-test suite above: this downloads a
@@ -144,3 +133,45 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python -m pytest tests/test_godot_renderer.py tests/test_orchestrator.py -v -k "Real"
+
+  blender-integration:
+    # Real headless Blender render under Xvfb (EEVEE needs an OpenGL context even
+    # with --background; Mesa's software rasteriser provides one on CI runners).
+    # Exercises tests/test_blender_renderer.py::TestRealBlender plus a full CLI run
+    # (prompt -> Blender frames -> mp4 + otio) with offline dummy providers.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libgl1 xvfb ffmpeg blender
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Blender integration tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests/test_blender_renderer.py -v
+
+      - name: End-to-end CLI run with real Blender
+        run: |
+          python -m src.cli run "A detective finds a clue in a rainy alley." \
+            --dummy --renderer blender --resolution 320x180 --fps 6 --json > run.json
+          python - <<'PY'
+          import json, pathlib
+          r = json.load(open("run.json"))
+          assert r["video"] and pathlib.Path(r["video"]).stat().st_size > 0, r
+          assert r["failures"] == [], r["failures"]
+          print("OK:", r["video"])
+          PY

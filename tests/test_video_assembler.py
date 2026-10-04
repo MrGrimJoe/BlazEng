@@ -100,3 +100,28 @@ class TestAssembleRealEncoding:
         frames = _make_frames(tmp_path, "shot_001", 3)
         output = assembler.assemble({"shot_001": frames}, output_name="my_video.mp4")
         assert output.name == "my_video.mp4"
+
+
+class TestBlenderStyleFrames:
+    """Blender numbers frames from 1 (Godot from 0) and users may pick odd sizes."""
+
+    @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg")
+    def test_one_based_frames_and_odd_dimensions(self, tmp_path):
+        from PIL import Image
+
+        frames = []
+        for i in range(1, 7):
+            p = tmp_path / f"frame{i:04d}.png"
+            Image.new("RGB", (63, 35), (i * 20, 50, 90)).save(p)  # odd size on purpose
+            frames.append(p)
+        asm = VideoAssembler({"storage_path": str(tmp_path / "s"), "render_fps": 6})
+        out = asm.assemble({"s1": frames})
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames",
+             "-show_entries", "stream=nb_read_frames,width,height", "-of", "csv=p=0", str(out)],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        w, h, n = probe.split(",")
+        assert int(n) == 6          # no frame dropped by a wrong start number
+        assert int(w) % 2 == 0 and int(h) % 2 == 0
+        assert asm.segment_paths["s1"].exists()

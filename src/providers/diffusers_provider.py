@@ -23,6 +23,14 @@ try:
 except ImportError:  # pragma: no cover - exercised only when diffusers isn't installed
     _DIFFUSERS_AVAILABLE = False
 
+    class _AutoPipelineForText2Image:  # placeholder so the name always exists
+        """Stand-in used when diffusers is missing; never reached in practice
+        because _require_diffusers() raises first."""
+
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            raise ImportError("diffusers is not installed")
+
 
 class DiffusersConfigError(Exception):
     """Raised when the Diffusers provider is misconfigured (no repo_id, etc.)."""

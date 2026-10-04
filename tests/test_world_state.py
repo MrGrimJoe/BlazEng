@@ -146,3 +146,12 @@ def test_failed_write_rolls_back_rather_than_partially_committing(world_state):
     # proving _cursor() actually rolled back rather than partially committing.
     char = world_state.get_character("detective")
     assert char["appearance"] == "original"
+
+
+def test_list_shots_uses_natural_order(world_state):
+    """shot_10 must come after shot_2 (string ordering would put it first)."""
+    for sid in ("shot_10", "shot_2", "shot_1", "shot_100", "shot_20"):
+        world_state.add_shot(sid, {"scene_description": sid})
+    assert [s["shot_id"] for s in world_state.list_shots()] == [
+        "shot_1", "shot_2", "shot_10", "shot_20", "shot_100"
+    ]

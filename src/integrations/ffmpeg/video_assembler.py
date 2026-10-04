@@ -26,6 +26,9 @@ class VideoAssembler:
         self.fps = int(config.get("render_fps", 24))
         self.storage_path = Path(config.get("storage_path", "./storage"))
         self.output_dir = self.storage_path / "output"
+        # shot_id -> encoded per-shot segment, filled by assemble(); used by
+        # the OpenTimelineIO exporter to point clips at real media files.
+        self.segment_paths: Dict[str, Path] = {}
 
     def assemble(self, shot_frames: Dict[str, List[Path]], output_name: str = "final.mp4") -> Path:
         """Build one MP4 from `shot_frames` (shot_id -> ordered frame paths),
@@ -45,10 +48,13 @@ class VideoAssembler:
         segments_dir.mkdir(parents=True, exist_ok=True)
 
         segment_paths = []
+        self.segment_paths = {}
         for shot_id, frames in shot_frames.items():
             if not frames:
                 raise FFmpegError(f"Shot '{shot_id}' has no frames to encode")
-            segment_paths.append(self._encode_segment(shot_id, frames, segments_dir))
+            segment = self._encode_segment(shot_id, frames, segments_dir)
+            segment_paths.append(segment)
+            self.segment_paths[shot_id] = segment
 
         if len(segment_paths) == 1:
             final_path = self.output_dir / output_name
@@ -65,7 +71,14 @@ class VideoAssembler:
         cmd = [
             self.ffmpeg_binary, "-y",
             "-framerate", str(self.fps),
+            # Renderers number frames from different bases (Godot from 0,
+            # Blender from 1); start at the first frame we were actually given
+            # rather than relying on ffmpeg's start-number probing.
+            "-start_number", str(self._frame_number(first_frame)),
             "-i", str(first_frame.parent / pattern),
+            # H.264 + yuv420p needs even dimensions; round down if a custom
+            # render_width/height is odd instead of failing the whole encode.
+            "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             str(segment_path),
         ]
@@ -93,6 +106,15 @@ class VideoAssembler:
         if result.returncode != 0:
             raise FFmpegError(f"ffmpeg concat failed: {result.stderr[-500:]}")
         return final_path
+
+    @staticmethod
+    def _frame_number(frame: Path) -> int:
+        digits = ""
+        for ch in reversed(frame.stem):
+            if not ch.isdigit():
+                break
+            digits = ch + digits
+        return int(digits) if digits else 0
 
     @staticmethod
     def _frame_glob_pattern(first_frame: Path) -> str:
