@@ -48,6 +48,8 @@ class AssetManager:
         self.config = config
         self.image_provider = image_provider
         self.storage_path = Path(config.get("storage_path", "./storage")) / "assets"
+        self.min_similarity = float(config.get("consistency_min_similarity", 0.5))
+        self.consistency_retries = int(config.get("consistency_retries", 2))
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
     def get_asset(
@@ -85,16 +87,67 @@ class AssetManager:
 
         image_path = version_dir / f"{_sanitize(name)}_v{next_version}.png"
         logger.info(f"Generating asset: {asset_type}/{name} v{next_version}")
-        self.image_provider.generate_image(description, image_path)
 
-        self._write_meta(version_dir, {
+        # Character consistency: a new version of an existing character is
+        # generated *from* its first (locked) image, so a changed description or
+        # a repair re-draws the same person rather than a stranger.
+        reference = self._locked_reference(asset_dir) if asset_type == "character" else None
+        meta: Dict[str, Any] = {
             "asset_type": asset_type,
             "name": name,
             "description": description,
             "version": next_version,
-        })
+        }
+        if reference is None:
+            self.image_provider.generate_image(description, image_path)
+        else:
+            meta["reference"] = str(reference)
+            score = self._generate_close_to(description, image_path, reference)
+            if score is not None:
+                meta["similarity_to_reference"] = round(score, 3)
+                if score < self.min_similarity:
+                    meta["drift_warning"] = True
+                    logger.warning(
+                        f"Character '{name}' v{next_version} drifted from its reference "
+                        f"(similarity {score:.2f} < {self.min_similarity:.2f})"
+                    )
 
+        self._write_meta(version_dir, meta)
         return image_path
+
+    def locked_reference(self, asset_type: str, name: str) -> Optional[Path]:
+        """The image every later version of this asset is generated from (its v1)."""
+        return self._locked_reference(self.storage_path / _sanitize(asset_type) / _sanitize(name))
+
+    def _locked_reference(self, asset_dir: Path) -> Optional[Path]:
+        if not asset_dir.exists():
+            return None
+        versions = sorted(
+            (d for d in asset_dir.iterdir() if d.is_dir() and d.name.startswith("v")),
+            key=self._version_number,
+        )
+        for v in versions:
+            image = self._find_image(v)
+            if image is not None:
+                return image
+        return None
+
+    def _generate_close_to(self, description: str, image_path: Path, reference: Path) -> Optional[float]:
+        """Generate with the reference, retrying while the result drifts. Returns similarity, or None if unmeasurable."""
+        from src.core.validator.consistency import similarity
+
+        score: Optional[float] = None
+        for attempt in range(1 + self.consistency_retries):
+            self.image_provider.generate_image(description, image_path, reference_image=reference)
+            try:
+                score = similarity(reference, image_path)
+            except Exception as e:  # noqa: BLE001 - unreadable image: cannot measure, do not block
+                logger.debug(f"Could not measure similarity: {e}")
+                return None
+            if score >= self.min_similarity:
+                break
+            logger.info(f"Drift check failed (attempt {attempt + 1}): similarity {score:.2f}")
+        return score
 
     def list_asset_versions(self, asset_type: str, name: str) -> List[Path]:
         asset_dir = self.storage_path / _sanitize(asset_type) / _sanitize(name)

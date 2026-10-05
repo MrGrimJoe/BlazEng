@@ -1,24 +1,12 @@
-name: Build AI Production Studio Installer
-
-# AIProductionStudio.spec references bin/ffmpeg.exe and godot/ in its
-# binaries=[]/datas=[], but neither is committed to the repo -- setup.py
-# normally downloads them at first-run, after the exe already exists. For
-# a from-scratch CI build to work at all, both have to be staged BEFORE
-# PyInstaller runs, using the same URLs setup.py already defines.
+name: Build BlazEng Installer
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "**.py"
-      - "AIProductionStudio.spec"
-      - "installer.iss"
-      - "config.yaml"
-      - ".github/workflows/build-installer.yml"
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Also attach the built installer to a GitHub Release"
+        description: "Attach the installer to a GitHub Release"
         type: boolean
         default: false
 
@@ -29,122 +17,79 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Install PyInstaller + app dependencies
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = python -c "import src; print(src.__version__)"
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Install dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+          pip install pyinstaller -r requirements.txt
 
-      - name: Stage bundled FFmpeg (required by AIProductionStudio.spec)
+      - name: Stage FFmpeg and Godot
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path bin | Out-Null
-          $ffmpegZip = "$env:TEMP\ffmpeg.zip"
-          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile $ffmpegZip -UseBasicParsing
-          Expand-Archive -Path $ffmpegZip -DestinationPath "$env:TEMP\ffmpeg_extracted" -Force
-          $exe = Get-ChildItem -Path "$env:TEMP\ffmpeg_extracted" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
-          if (-not $exe) { Write-Error "ffmpeg.exe not found in the downloaded archive."; exit 1 }
-          Copy-Item $exe.FullName -Destination "bin\ffmpeg.exe"
-
-      - name: Stage Godot (required by AIProductionStudio.spec)
-        shell: pwsh
-        run: |
-          $godotZip = "$env:TEMP\godot.zip"
-          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip" -OutFile $godotZip -UseBasicParsing
-          New-Item -ItemType Directory -Force -Path godot | Out-Null
-          Expand-Archive -Path $godotZip -DestinationPath godot -Force
-
-      - name: Stage empty storage/ directory (required by AIProductionStudio.spec)
-        shell: pwsh
-        run: |
-          # datas=[('storage/', 'storage/')] in the spec needs this to exist
-          # at build time, but it's user-generated content (never committed
-          # to the repo -- created at runtime otherwise), so a from-scratch
-          # checkout has no storage/ at all without this.
-          New-Item -ItemType Directory -Force -Path storage | Out-Null
+          New-Item -ItemType Directory -Force -Path bin, godot | Out-Null
+          Invoke-WebRequest -UseBasicParsing -OutFile "$env:TEMP\ffmpeg.zip" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+          Expand-Archive "$env:TEMP\ffmpeg.zip" "$env:TEMP\ffmpeg_x" -Force
+          $exe = Get-ChildItem "$env:TEMP\ffmpeg_x" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error "ffmpeg.exe not found"; exit 1 }
+          Copy-Item $exe.FullName bin\ffmpeg.exe
+          Invoke-WebRequest -UseBasicParsing -OutFile "$env:TEMP\godot.zip" "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip"
+          Expand-Archive "$env:TEMP\godot.zip" godot -Force
 
       - name: Build with PyInstaller
-        id: pyinstaller_build
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          pyinstaller AIProductionStudio.spec --clean --noconfirm 2>&1 | Tee-Object -FilePath pyinstaller_output.log
-          exit $LASTEXITCODE
-
-      - name: Commit build log on failure (self-diagnosing)
-        if: steps.pyinstaller_build.outcome == 'failure'
         shell: pwsh
         run: |
-          # *.log is gitignored (confirmed: .gitignore has `*.log`), so a
-          # plain `git add` silently no-ops on it -- which is exactly what
-          # happened last time, and PowerShell steps in GH Actions don't
-          # fail on a nonzero exit code from an external command unless you
-          # check it yourself, so that no-op reported "success" anyway.
-          # Force-add past .gitignore, and check every git call explicitly.
-          git config user.email "ci@github-actions.local"
-          git config user.name "GitHub Actions CI"
-          git fetch origin ci-debug-logs 2>$null
-          git checkout -B ci-debug-logs
-          Copy-Item pyinstaller_output.log "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
-          git add -f "pyinstaller-run$env:GITHUB_RUN_NUMBER.log"
-          if ($LASTEXITCODE -ne 0) { Write-Error "git add failed"; exit 1 }
-          git commit -m "CI debug log: PyInstaller failure, run $env:GITHUB_RUN_NUMBER"
-          if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed"; exit 1 }
-          git push origin ci-debug-logs --force
-          if ($LASTEXITCODE -ne 0) { Write-Error "git push failed"; exit 1 }
+          pyinstaller BlazEng.spec --clean --noconfirm
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Fail the job if PyInstaller actually failed
-        if: steps.pyinstaller_build.outcome == 'failure'
+      - name: Smoke-test the frozen app
         shell: pwsh
-        run: exit 1
+        run: python scripts/smoke_frozen.py dist\BlazEng --expect-bundled ffmpeg,godot
 
-      - name: Verify PyInstaller output exists
+      - name: Compile installer
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist\AIProductionStudio\AIProductionStudio.exe")) {
-            Write-Error "dist\AIProductionStudio\AIProductionStudio.exe was not produced -- check the PyInstaller log above."
-            exit 1
-          }
+          choco install innosetup --no-progress -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.version }}" installer.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
-      - name: Compile installer.iss
+      - name: Silent install / uninstall check
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer.iss"
+          $setup = "dist\installer\BlazEng_Setup_${{ steps.ver.outputs.version }}.exe"
+          $dir = "$env:RUNNER_TEMP\BlazEngInstall"
+          Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$dir" -Wait
+          if (-not (Test-Path "$dir\blazeng-cli.exe")) { Write-Error "CLI not installed"; exit 1 }
+          & "$dir\blazeng-cli.exe" version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          Start-Sleep -Seconds 5
+          if (Test-Path "$dir\BlazEng.exe") { Write-Error "uninstall left files"; exit 1 }
 
-      - name: Verify installer output exists
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "dist\installer\AIProductionStudio_Setup.exe")) {
-            Write-Error "AIProductionStudio_Setup.exe was not produced -- check the ISCC log above."
-            exit 1
-          }
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v6
         with:
-          name: AIProductionStudio_Setup
-          path: dist\installer\AIProductionStudio_Setup.exe
+          name: BlazEng_Setup_${{ steps.ver.outputs.version }}
+          path: dist\installer\BlazEng_Setup_${{ steps.ver.outputs.version }}.exe
           retention-days: 30
 
-      - name: Publish GitHub Release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v1.0.0-${{ github.run_number }}
-          name: AI Production Studio v1.0.0 (build ${{ github.run_number }})
-          files: dist\installer\AIProductionStudio_Setup.exe
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', steps.ver.outputs.version) }}
+          name: BlazEng ${{ steps.ver.outputs.version }}
+          files: dist\installer\BlazEng_Setup_${{ steps.ver.outputs.version }}.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

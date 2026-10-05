@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from src import __version__
-from src.pipeline import build_pipeline, ensure_storage, load_config
+from src.pipeline import build_pipeline, ensure_storage, load_config, timeline_shots
 
 EXIT_OK, EXIT_PARTIAL, EXIT_FAILED, EXIT_USAGE = 0, 1, 2, 3
 
@@ -51,11 +51,23 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--fps", type=int, help="frames per second")
     run.add_argument("--dummy", action="store_true",
                      help="use offline placeholder providers (no API keys, no cost)")
+    run.add_argument("--characters", choices=["planes", "rigged"],
+                     help="Blender characters: flat image planes (default) or rigged, animated 3D figures")
+    run.add_argument("--model", action="append", default=[], metavar="NAME=FILE.glb",
+                     help="use your own glTF/GLB model for a character (implies --characters rigged; repeatable)")
+    run.add_argument("--speech", choices=["auto", "none", "dummy", "espeak", "openai", "piper", "command"],
+                     help="text-to-speech for dialogue (default: espeak-ng if installed, else silent)")
+    run.add_argument("--voice", action="append", default=[], metavar="NAME=VOICE",
+                     help="assign a voice to a character, e.g. --voice Ann=en_US-amy-medium (repeatable)")
     run.add_argument("--validate", action="store_true",
                      help="enable vision validation + auto-repair (needs a vision-capable provider)")
     run.add_argument("-o", "--output", default="final.mp4", help="output video name (default: final.mp4)")
     run.add_argument("--no-timeline", action="store_true", help="skip the .otio timeline export")
     run.add_argument("--json", action="store_true", help="print a machine-readable summary")
+
+    voices = sub.add_parser("voices", help="list the voices the speech provider can use")
+    voices.add_argument("-c", "--config", default="config.yaml")
+    voices.add_argument("--speech", choices=["auto", "none", "dummy", "espeak", "openai", "piper", "command"])
 
     sub.add_parser("doctor", help="check this machine can run BlazEng").add_argument(
         "-c", "--config", default="config.yaml")
@@ -88,6 +100,32 @@ def apply_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dict[st
         cfg["render_width"], cfg["render_height"] = _parse_resolution(args.resolution)
     if args.dummy:
         cfg["text_provider"] = cfg["vision_provider"] = cfg["image_provider"] = "dummy"
+        cfg.setdefault("speech_provider", "dummy")
+        if cfg["speech_provider"] == "auto":
+            cfg["speech_provider"] = "dummy"
+    if getattr(args, "characters", None):
+        cfg["blender_characters"] = args.characters
+    if getattr(args, "model", None):
+        models = dict(cfg.get("character_models") or {})
+        for item in args.model:
+            name, sep, path = item.partition("=")
+            if not sep or not name.strip() or not path.strip():
+                raise argparse.ArgumentTypeError(f"invalid --model {item!r}; expected NAME=FILE.glb")
+            if not Path(path.strip()).is_file():
+                raise argparse.ArgumentTypeError(f"--model file not found: {path.strip()}")
+            models[name.strip()] = path.strip()
+        cfg["character_models"] = models
+        cfg["blender_characters"] = "rigged"
+    if getattr(args, "speech", None):
+        cfg["speech_provider"] = args.speech
+    if getattr(args, "voice", None):
+        voices = dict(cfg.get("voices") or {})
+        for item in args.voice:
+            name, sep, voice = item.partition("=")
+            if not sep or not name.strip() or not voice.strip():
+                raise argparse.ArgumentTypeError(f"invalid --voice {item!r}; expected NAME=VOICE")
+            voices[name.strip()] = voice.strip()
+        cfg["voices"] = voices
     if args.validate:
         cfg["skip_validation"] = False
     return cfg
@@ -164,7 +202,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     assembler = VideoAssembler(config)
     try:
         say("Assembling video…")
-        video = assembler.assemble(ordered, output_name=args.output)
+        audio = {sid: p for sid, p in orchestrator.shot_audio.items() if sid in ordered}
+        video = assembler.assemble(ordered, output_name=args.output, shot_audio=audio or None)
+        summary["audio_shots"] = sorted(audio)
     except FFmpegError as e:
         print(f"error: video assembly failed: {e}", file=sys.stderr)
         return EXIT_FAILED
@@ -172,15 +212,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     timeline = None
     if not args.no_timeline:
         try:
-            shot_dicts = [
-                {"shot_id": s.shot_id, "duration_seconds": s.duration_seconds,
-                 "scene_description": s.scene_description, "camera_angle": s.camera_angle,
-                 "lighting": s.lighting, "characters": s.characters, "action": s.action}
-                for s in plan.shots
-            ]
             timeline = export_timeline(
-                shot_dicts, assembler.segment_paths,
-                Path(video).with_suffix(".otio"), fps=assembler.fps,
+                timeline_shots(plan, ordered, assembler.fps, world_state), assembler.segment_paths,
+                Path(video).with_suffix(".otio"), fps=assembler.fps, shot_audio=audio or None,
             )
         except TimelineExportError as e:
             print(f"warning: timeline not written: {e}", file=sys.stderr)
@@ -247,6 +281,28 @@ def run_checks(config: Dict[str, Any]) -> List[Tuple[str, str, str]]:
     if not godot.exists() and not blender:
         checks.append((FAIL, "renderer", "neither Godot nor Blender found — install one"))
 
+    speech = str(config.get("speech_provider", "auto")).lower()
+    espeak = shutil.which(str(config.get("espeak_path", "espeak-ng")))
+    if speech in ("auto", "espeak"):
+        checks.append((OK if espeak else WARN, "speech",
+                       f"espeak-ng at {espeak}" if espeak else
+                       "espeak-ng not found — dialogue will be silent (sudo apt install espeak-ng)"))
+    elif speech == "piper":
+        from src.providers.speech_providers import piper_voices_dir
+        vdir = piper_voices_dir(config)
+        have = sorted(p.stem for p in vdir.glob("*.onnx")) if vdir.is_dir() else []
+        piper = shutil.which(str(config.get("piper_path", "piper")))
+        status = OK if (piper and have) else WARN
+        checks.append((status, "speech", f"piper {'found' if piper else 'NOT found (pip install piper-tts)'}; "
+                                         f"{len(have)} voice(s) in {vdir}"))
+    elif speech == "command":
+        cmd = config.get("speech_command") or []
+        found = bool(cmd) and (shutil.which(str(cmd[0])) or Path(str(cmd[0])).exists())
+        checks.append((OK if found else WARN, "speech", f"speech_command: {cmd[0] if cmd else '(not set)'}"
+                                                         + ("" if found else " — program not found")))
+    else:
+        checks.append((OK, "speech", f"speech_provider: {speech}"))
+
     try:
         from src.providers.provider_factory import validate_provider_config
         valid, msg = validate_provider_config(config)
@@ -254,6 +310,30 @@ def run_checks(config: Dict[str, Any]) -> List[Tuple[str, str, str]]:
     except Exception as e:  # noqa: BLE001
         checks.append((WARN, "providers", f"could not validate: {e}"))
     return checks
+
+
+def cmd_voices(args: argparse.Namespace) -> int:
+    from src.providers.speech_providers import get_speech_provider
+
+    config = load_config(args.config)
+    if args.speech:
+        config["speech_provider"] = args.speech
+    try:
+        provider = get_speech_provider(config)
+    except Exception as e:  # noqa: BLE001
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_FAILED
+    if provider is None:
+        print("No speech provider is active (speech_provider: none, or auto found nothing installed).")
+        return EXIT_OK
+    pool = provider.voices()
+    print(f"Speech provider: {type(provider).__name__}")
+    print("Voices: " + (", ".join(pool) if pool else "(single default voice)"))
+    if provider.assignments:
+        print("Assigned: " + ", ".join(f"{k} -> {v}" for k, v in sorted(provider.assignments.items())))
+    if type(provider).__name__ == "PiperSpeechProvider" and not pool:
+        print(f"Put <name>.onnx (+ <name>.onnx.json) Piper voice files in {provider.voices_dir}")
+    return EXIT_OK
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -281,6 +361,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return EXIT_OK
     if args.command == "doctor":
         return cmd_doctor(args)
+    if args.command == "voices":
+        return cmd_voices(args)
     return cmd_run(args)
 
 

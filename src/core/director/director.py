@@ -30,6 +30,8 @@ class Shot:
     lighting: str = "natural daylight"
     action: str = ""
     duration_seconds: float = 4.0
+    # Spoken lines in order: [{"character": name, "line": text}, ...]
+    dialogue: List[Dict[str, str]] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any], index: int) -> "Shot":
@@ -41,7 +43,20 @@ class Shot:
             lighting=str(d.get("lighting") or "natural daylight"),
             action=str(d.get("action", "")),
             duration_seconds=_coerce_float(d.get("duration_seconds"), default=4.0),
+            dialogue=_coerce_dialogue(d.get("dialogue")),
         )
+
+    def to_metadata(self) -> Dict[str, Any]:
+        """The dict form stored in world state (and read back by the orchestrator)."""
+        return {
+            "scene_description": self.scene_description,
+            "characters": self.characters,
+            "camera_angle": self.camera_angle,
+            "lighting": self.lighting,
+            "action": self.action,
+            "duration_seconds": self.duration_seconds,
+            "dialogue": self.dialogue,
+        }
 
 
 @dataclass
@@ -54,7 +69,7 @@ class ProductionPlan:
 @dataclass
 class Task:
     """A single unit of pipeline work, in dependency order."""
-    task_type: str        # "generate_asset" | "compose_scene" | "render" | "validate"
+    task_type: str        # "generate_asset" | "compose_scene" | "speak" | "render" | "validate"
     shot_id: str
     payload: Dict[str, Any] = field(default_factory=dict)
 
@@ -72,6 +87,7 @@ markdown fences, no commentary — matching exactly this schema:
       "camera_angle": "wide shot | medium shot | close-up | overhead | etc",
       "lighting": "brief lighting description",
       "action": "what happens during this shot",
+      "dialogue": [{"character": "character_name", "line": "words spoken aloud"}],
       "duration_seconds": 4.0
     }
   ],
@@ -83,7 +99,8 @@ markdown fences, no commentary — matching exactly this schema:
 Break the story into 5-15 shots depending on complexity. Every character \
 referenced in a shot's "characters" list must have an entry in world_state_seed. \
 Keep scene_description concrete and visual — describe what a camera would see, \
-not internal thoughts or backstory."""
+not internal thoughts or backstory. "dialogue" is optional (use [] for silent \
+shots): short spoken lines only, each by a character who appears in that shot."""
 
 
 class Director:
@@ -154,17 +171,10 @@ class Director:
             if isinstance(metadata, dict):
                 self.world_state.add_character(name, metadata)
         for shot in plan.shots:
-            self.world_state.add_shot(shot.shot_id, {
-                "scene_description": shot.scene_description,
-                "characters": shot.characters,
-                "camera_angle": shot.camera_angle,
-                "lighting": shot.lighting,
-                "action": shot.action,
-                "duration_seconds": shot.duration_seconds,
-            })
+            self.world_state.add_shot(shot.shot_id, shot.to_metadata())
 
     def create_task_schedule(self, plan: ProductionPlan) -> List[Task]:
-        """Build a dependency-ordered task list: assets -> compose -> render -> validate.
+        """Build a dependency-ordered task list: assets -> speak -> compose -> render -> validate.
 
         Asset generation tasks are deduplicated per character/object name so
         a character appearing in 10 shots gets one generation task, not ten.
@@ -180,6 +190,9 @@ class Director:
                     }))
                     seen_assets.add(character)
 
+        for shot in plan.shots:
+            if shot.dialogue:  # speech first: its length changes the shot, and the scene needs its timing
+                tasks.append(Task("speak", shot.shot_id, {}))
         for shot in plan.shots:
             tasks.append(Task("compose_scene", shot.shot_id, {"shot": shot}))
         for shot in plan.shots:
@@ -214,6 +227,7 @@ class Director:
             lighting=shot_data.get("lighting", "natural daylight"),
             action=shot_data.get("action", ""),
             duration_seconds=shot_data.get("duration_seconds", 4.0),
+            dialogue=_coerce_dialogue(shot_data.get("dialogue")),
         )
 
 
@@ -285,6 +299,32 @@ def _coerce_str_list(value: Any) -> List[str]:
     if isinstance(value, list):
         return [str(v) for v in value]
     return [str(value)]
+
+
+def _coerce_dialogue(value: Any) -> List[Dict[str, str]]:
+    """Normalise dialogue from an LLM into [{"character", "line"}, ...].
+
+    Accepts dicts (character/speaker/name + line/text/dialogue) and "Name: words"
+    strings; drops empty lines and anything unusable rather than failing the plan.
+    """
+    if not value:
+        return []
+    if isinstance(value, (str, dict)):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    out: List[Dict[str, str]] = []
+    for item in value:
+        character, line = "", ""
+        if isinstance(item, dict):
+            character = str(item.get("character") or item.get("speaker") or item.get("name") or "").strip()
+            line = str(item.get("line") or item.get("text") or item.get("dialogue") or "").strip()
+        elif isinstance(item, str) and ":" in item:
+            character, _, line = item.partition(":")
+            character, line = character.strip(), line.strip()
+        if character and line:
+            out.append({"character": character, "line": line})
+    return out
 
 
 def _coerce_float(value: Any, default: float) -> float:

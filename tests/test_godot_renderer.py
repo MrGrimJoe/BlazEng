@@ -22,6 +22,20 @@ import pytest
 from src.integrations.godot.renderer import GodotRenderer, GodotRenderError
 
 
+@pytest.fixture(autouse=True)
+def _assume_linux_display(monkeypatch):
+    """These tests describe the Linux code path (commands wrapped in xvfb-run).
+
+    Windows/macOS launch the engine directly; that behaviour is covered in
+    tests/test_display.py, so pin the platform here to keep these assertions
+    meaningful on every CI operating system.
+    """
+    from src.integrations import display
+
+    monkeypatch.setattr(display, "needs_virtual_display", lambda: True)
+
+
+
 @pytest.fixture
 def fake_project(tmp_path):
     """A minimal fake Godot project + scene, without a real binary."""

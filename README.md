@@ -4,10 +4,10 @@
 
 ---
 
-## Status: v0.9.0 — feature-complete (October 2, 2026)
+## Status: v0.11.0 (October 4, 2026)
 
 Give BlazEng a story prompt and it plans the shots, generates character art,
-composes scenes, renders real frames with **Godot (2D) or Blender (3D)**,
+writes dialogue and speaks it, composes scenes, renders real frames with **Godot (2D) or Blender (3D)**,
 optionally validates and auto-repairs them, and assembles an MP4 plus an
 editable `.otio` timeline. Run it from the **desktop app** or fully
 **headless from the command line**.
@@ -15,7 +15,7 @@ editable `.otio` timeline. Run it from the **desktop app** or fully
 It supports Gemini, OpenAI and Claude for the AI side, plus fully local models
 through HuggingFace and Diffusers. Mix and match per stage.
 
-**How it's been checked**: 355 automated tests (2 skip when the Godot binary is absent). Rendering and encoding were
+**How it's been checked**: about 470 automated tests (2 skip when the Godot binary is absent). Rendering and encoding were
 exercised against real binaries (Godot 4.7.2, Blender 4.0.2 under Xvfb, ffmpeg),
 and the UI is tested offscreen with a real worker thread, including cancel,
 failure and GUI-responsiveness cases.
@@ -29,7 +29,8 @@ reporting anything that doesn't match would be appreciated.
 **Good to know**: validation + auto-repair is implemented but **off by default**
 (`skip_validation: true`) because it needs a vision-capable model and extra
 API calls. Blender characters are flat image planes in a genuinely 3D scene
-(real camera, lighting, shadows); rigged 3D characters are future work.
+(real camera, lighting, shadows); characters are image planes by default; `--characters rigged` gives animated 3D figures (idle / talk / walk) whose jaw follows the dialogue, and you can use your own glTF models.
+Dialogue is a voice track over the picture (real offline speech via espeak-ng, or OpenAI TTS).
 
 ---
 
@@ -50,6 +51,10 @@ API calls. Blender characters are flat image planes in a genuinely 3D scene
 - **BlenderRenderer**: Headless 3D rendering (EEVEE / Cycles / Workbench) with a perspective camera, lighting and shadows, driven from a renderer-neutral scene description; selectable with `renderer: godot | blender | auto`
 - **Headless CLI** (`python -m src.cli`): `run`, `doctor`, `version`; scriptable exit codes and `--json` output
 - **OpenTimelineIO export**: every run also writes an `.otio` timeline, one clip per shot with scene metadata
+- **Dialogue + speech**: shots carry spoken lines; each is synthesised (one stable voice per character), the shot is lengthened to fit, and the MP4 and `.otio` (Dialogue track) include the audio — `speech_provider: auto | espeak | openai | dummy | none`
+- **Rigged 3D characters** (Blender): animated figures in the colours of the character art, lip-flap from the speech audio, or your own `.glb` models
+- **Voices**: per-character voices; espeak-ng, Piper (your own `.onnx` voices), OpenAI, or any TTS command
+- **Character consistency**: new versions of a character are generated from its first image, drift-checked against it, and a deterministic validator confirms each character's colours are visible in rendered frames
 - **Desktop UI (PyQt6)**: shot timeline, frame-scrubbing shot viewer, asset browser with thumbnails, world-state viewer, settings dialog, cancellable background worker
 
 ---
@@ -154,6 +159,48 @@ success = orchestrator.run_pipeline()
 
 frames = orchestrator.rendered_frames          # {shot_id: [frame paths]}
 print(VideoAssembler(config).assemble(frames))
+```
+
+### Dialogue and speech
+
+```bash
+sudo apt install espeak-ng            # or: brew install espeak-ng
+python -m src.cli run "Two detectives argue in a rainy alley." --renderer blender
+```
+
+`speech_provider: auto` (default) uses espeak-ng when it is installed and otherwise leaves
+shots silent. `--speech openai` uses OpenAI TTS; `--dummy` uses tone bursts instead of speech.
+
+### Getting good-looking results
+
+The offline `dummy` providers (and the sample videos made with them) only prove the plumbing: their
+characters are flat-colour silhouettes. For real output:
+
+- Use a real **image provider** (Gemini or OpenAI) so characters come from real art; rigged characters take
+  their colours from that art, and consistency checks compare against it.
+- For better 3D bodies, supply your own rigged **glTF/GLB models** (`character_models`) instead of the built-in mannequin.
+- Use **Piper** voices or your own TTS command instead of the default espeak-ng voice.
+- Turn on **validation** (`--validate`) with a vision-capable model so bad shots are repaired.
+
+The installer does not bundle espeak-ng; install it (or choose another speech provider) for dialogue audio.
+
+### Voices
+
+```bash
+blazeng voices                                  # what the active speech provider offers
+blazeng run "..." --voice Ann=en_US-amy-medium --voice Bob=en_US-ryan-high   # per character
+```
+
+`speech_provider: piper` uses neural voices from `.onnx` files you drop in `./voices`
+(from [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices) or models you made).
+`speech_provider: command` runs any TTS program you describe in `speech_command`, so a voice-cloning
+tool can speak in a voice you supply. Only use voices you have the right to use.
+
+### Rigged 3D characters
+
+```bash
+python -m src.cli run "Two detectives argue in a rainy alley." --renderer blender --characters rigged
+python -m src.cli run "..." --renderer blender --model Ann=/path/to/ann.glb
 ```
 
 ### Rendering with Blender (headless)

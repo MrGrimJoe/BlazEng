@@ -85,7 +85,10 @@ class DiffusersImageProvider(ImageProvider):
             self._load, self.repo_id, self.hf_token, self.token_prompt_fn
         )
 
-    def generate_image(self, prompt: str, output_path: Path) -> Path:
+    def generate_image(
+        self, prompt: str, output_path: Path, reference_image: Optional[Path] = None
+    ) -> Path:
+        # Text-to-image only: the reference is accepted and ignored.
         self._ensure_loaded()
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)

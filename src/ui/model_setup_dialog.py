@@ -16,6 +16,21 @@ TEXT_VISION = ["gemini", "openai", "anthropic", "huggingface", "ollama", "dummy"
 IMAGE = ["gemini", "openai", "diffusers", "dummy"]
 RENDERERS = ["auto", "godot", "blender"]
 ENGINES = ["eevee", "cycles", "workbench"]
+CHARACTERS = ["planes", "rigged"]
+SPEECH = ["auto", "none", "espeak", "piper", "openai", "command", "dummy"]
+
+
+def parse_voices(text: str) -> Dict[str, str]:
+    """"Ann=amy, Bob=ryan:2" -> {"Ann": "amy", "Bob": "ryan:2"}. Raises ValueError on a malformed pair."""
+    out: Dict[str, str] = {}
+    for part in text.replace("\n", ",").split(","):
+        if not part.strip():
+            continue
+        name, sep, voice = part.partition("=")
+        if not sep or not name.strip() or not voice.strip():
+            raise ValueError(f"voice assignment {part.strip()!r} should look like Name=voice")
+        out[name.strip()] = voice.strip()
+    return out
 
 
 class ModelSetupDialog(QDialog):
@@ -63,6 +78,17 @@ class ModelSetupDialog(QDialog):
         rf = QFormLayout(render)
         rf.addRow("Backend:", self.renderer_combo)
         rf.addRow("Blender engine:", self.engine_combo)
+        self.characters_combo = self._combo(CHARACTERS, "blender_characters", default="planes")
+        rf.addRow("Blender characters:", self.characters_combo)
+
+        self.speech_combo = self._combo(SPEECH, "speech_provider", default="auto")
+        self.voices_edit = QLineEdit(", ".join(f"{k}={v}" for k, v in (self.config.get("voices") or {}).items()))
+        self.voices_edit.setPlaceholderText("Ann=en_US-amy-medium, Bob=en-gb+m3  (optional)")
+        self.voices_edit.textChanged.connect(self._revalidate)
+        speech = QGroupBox("Dialogue voices")
+        sf = QFormLayout(speech)
+        sf.addRow("Speech:", self.speech_combo)
+        sf.addRow("Character voices:", self.voices_edit)
 
         self.message = QLabel("")
         self.message.setWordWrap(True)
@@ -71,9 +97,9 @@ class ModelSetupDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
-        for w in (self.offline, models, keys_box, render, self.message, self.buttons):
+        for w in (self.offline, models, keys_box, render, speech, self.message, self.buttons):
             layout.addWidget(w)
-        for c in (self.text_combo, self.vision_combo, self.image_combo, self.renderer_combo):
+        for c in (self.text_combo, self.vision_combo, self.image_combo, self.renderer_combo, self.speech_combo):
             c.currentTextChanged.connect(self._revalidate)
         self._revalidate()
 
@@ -106,7 +132,13 @@ class ModelSetupDialog(QDialog):
             hf_image_repo_id=self.hf_image_repo.text().strip(),
             renderer=self.renderer_combo.currentText(),
             blender_engine=self.engine_combo.currentText(),
+            blender_characters=self.characters_combo.currentText(),
+            speech_provider=self.speech_combo.currentText(),
         )
+        try:
+            cfg["voices"] = parse_voices(self.voices_edit.text())
+        except ValueError:
+            cfg["voices"] = dict(self.config.get("voices") or {})  # malformed text is reported by _revalidate
         for field, edit in self.keys.items():
             typed = edit.text().strip()
             # Keep the template placeholder if the user typed nothing, so
@@ -116,10 +148,15 @@ class ModelSetupDialog(QDialog):
 
     def _revalidate(self) -> None:
         ok, msg = validate_provider_config(self._candidate())
+        try:
+            parse_voices(self.voices_edit.text())
+        except ValueError as e:
+            ok, msg = False, str(e)
         self.message.setText("✓ Ready" if ok else f"⚠ {msg}")
         self.message.setStyleSheet("color:#2fbf71;" if ok else "color:#e0b34a;")
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(ok)
         self.engine_combo.setEnabled(self.renderer_combo.currentText() != "godot")
+        self.characters_combo.setEnabled(self.renderer_combo.currentText() != "godot")
 
     # -- public ------------------------------------------------------------
 

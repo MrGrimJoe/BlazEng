@@ -31,6 +31,7 @@ def export_timeline(
     output_path: Path,
     fps: int = 24,
     name: str = "BlazEng Production",
+    shot_audio: Optional[Dict[str, Path]] = None,
 ) -> Path:
     """Write ``output_path`` (.otio) and return it.
 
@@ -48,6 +49,9 @@ def export_timeline(
     timeline = otio.schema.Timeline(name=name)
     track = otio.schema.Track(name="Video 1", kind=otio.schema.TrackKind.Video)
     timeline.tracks.append(track)
+
+    audio_track = otio.schema.Track(name="Dialogue", kind=otio.schema.TrackKind.Audio)
+    has_audio = False
 
     clip_count = 0
     for shot in shots:
@@ -75,11 +79,30 @@ def export_timeline(
                     "lighting": shot.get("lighting", ""),
                     "characters": list(shot.get("characters", [])),
                     "action": shot.get("action", ""),
+                    "dialogue": list(shot.get("dialogue", [])),
                 }
             },
         )
         track.append(clip)
         clip_count += 1
+
+        audio_file = (shot_audio or {}).get(shot_id)
+        if audio_file is not None:
+            audio_clip = otio.schema.Clip(
+                name=f"{shot_id} dialogue",
+                media_reference=otio.schema.ExternalReference(
+                    target_url=Path(audio_file).resolve().as_uri(), available_range=available
+                ),
+                source_range=available,
+                metadata={"blazeng": {"dialogue": list(shot.get("dialogue", []))}},
+            )
+            audio_track.append(audio_clip)
+            has_audio = True
+        else:
+            audio_track.append(otio.schema.Gap(source_range=available))
+
+    if has_audio:
+        timeline.tracks.append(audio_track)
 
     if clip_count == 0:
         raise TimelineExportError("No shots with encoded media — nothing to put on the timeline")

@@ -11,7 +11,6 @@ class deliberately does not, to avoid duplicating that wiring).
 """
 
 import logging
-from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +48,4 @@ class RepairEngine:
         return revised_shot
 
     def _persist_revision(self, shot) -> None:
-        self.world_state.add_shot(shot.shot_id, {
-            "scene_description": shot.scene_description,
-            "characters": shot.characters,
-            "camera_angle": shot.camera_angle,
-            "lighting": shot.lighting,
-            "action": shot.action,
-            "duration_seconds": shot.duration_seconds,
-        })
+        self.world_state.add_shot(shot.shot_id, shot.to_metadata())

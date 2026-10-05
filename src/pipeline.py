@@ -7,9 +7,11 @@ display or Qt libraries installed.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import yaml
+
+from src import paths
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +22,23 @@ STORAGE_FOLDERS = [
 
 
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
-    config_path = Path(path)
+    """Load config. The default ``config.yaml`` resolves to the per-user file when installed."""
+    config_path = paths.resolve_config_path(path)
+    paths.ensure_user_config(config_path)
     if not config_path.exists():
         logger.warning(
             f"{config_path} not found — using built-in defaults. Copy config.yaml next to "
             "where you run blazeng (or run setup.py from a source checkout) to configure providers."
         )
-        return {}
+        return paths.apply_installed_defaults({})
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return paths.apply_installed_defaults(yaml.safe_load(f) or {})
 
 
 def save_config(config: Dict[str, Any], path: str = "config.yaml") -> None:
-    with open(path, "w", encoding="utf-8") as f:
+    target = paths.resolve_config_path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with open(target, "w", encoding="utf-8") as f:
         yaml.dump(config, f, default_flow_style=False)
 
 
@@ -56,6 +62,7 @@ def build_pipeline(config: Dict[str, Any]):
     from src.core.validator.validator_manager import ValidatorManager
     from src.core.world_state.world_state import WorldStateManager
     from src.integrations.renderer_factory import get_renderer
+    from src.providers.speech_providers import get_speech_provider
     from src.providers.provider_factory import (
         get_image_provider, get_text_provider, get_vision_provider,
     )
@@ -76,5 +83,30 @@ def build_pipeline(config: Dict[str, Any]):
         config, world_state, asset_manager,
         scene_composer, validator_mgr, repair_engine,
         renderer=renderer,
+        speech_provider=get_speech_provider(config),
     )
     return director, orchestrator, world_state, asset_manager
+
+
+def timeline_shots(plan, rendered, fps, world_state=None):
+    """Shot dicts for the OTIO export, with the durations that were actually rendered.
+
+    The plan's durations can be stale (a shot is lengthened to fit its dialogue
+    after planning), so the length comes from the frame count when frames exist,
+    and dialogue/metadata from world state when available.
+    """
+    out = []
+    for s in plan.shots:
+        data = (world_state.get_shot(s.shot_id) if world_state is not None else None) or {}
+        frames = rendered.get(s.shot_id)
+        duration = len(frames) / float(fps) if frames else data.get("duration_seconds", s.duration_seconds)
+        out.append({
+            "shot_id": s.shot_id, "duration_seconds": duration,
+            "scene_description": data.get("scene_description", s.scene_description),
+            "camera_angle": data.get("camera_angle", s.camera_angle),
+            "lighting": data.get("lighting", s.lighting),
+            "characters": data.get("characters", s.characters),
+            "action": data.get("action", s.action),
+            "dialogue": data.get("dialogue", s.dialogue),
+        })
+    return out

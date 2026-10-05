@@ -55,6 +55,7 @@ class PipelineOrchestrator:
         repair_engine,
         godot_renderer=None,
         renderer=None,
+        speech_provider=None,
     ):
         self.config = config
         self.world_state = world_state
@@ -66,6 +67,9 @@ class PipelineOrchestrator:
         # `godot_renderer` is kept as the attribute/kwarg name for backward compatibility.
         self.godot_renderer = renderer if renderer is not None else godot_renderer
         self.skip_validation = bool(config.get("skip_validation", True))
+        self.speech_provider = speech_provider
+        self._audio_paths: Dict[str, Any] = {}   # shot_id -> normalised dialogue WAV
+        self._speech_info: Dict[str, Dict[str, Any]] = {}  # shot_id -> {"wav", "lines": [{character,start,end}]}
 
         self._tasks: List[Any] = []
         self._asset_paths: Dict[str, Any] = {}   # character/object name -> Path
@@ -87,6 +91,11 @@ class PipelineOrchestrator:
         """shot_id -> rendered frame paths, for every shot that rendered."""
         return dict(self._rendered_frames)
 
+    @property
+    def shot_audio(self) -> Dict[str, Any]:
+        """shot_id -> dialogue audio file, for every shot that has speech."""
+        return dict(self._audio_paths)
+
     def load_task_schedule(self, tasks: List[Any]) -> None:
         self._tasks = list(tasks)
         logger.info(f"Loaded {len(self._tasks)} tasks")
@@ -107,6 +116,7 @@ class PipelineOrchestrator:
         dispatch = {
             "generate_asset": self._run_generate_asset,
             "compose_scene": self._run_compose_scene,
+            "speak": self._run_speak,
             "render": self._run_render,
             "validate": self._run_validate,
         }
@@ -181,12 +191,61 @@ class PipelineOrchestrator:
             )
 
         assets = {c: self._asset_paths[c] for c in shot.characters}
-        scene_path = self.scene_composer.compose_shot(shot, assets)
+        scene_path = self.scene_composer.compose_shot(shot, assets, speech=self._speech_info.get(shot.shot_id))
         self._scene_paths[shot_id] = scene_path
         if self.world_state is not None:
             self.world_state.set_shot_status(shot_id, "composed")
         if self.on_shot_update:
             self.on_shot_update(shot_id, "composed", str(scene_path))
+
+    def _run_speak(self, task) -> None:
+        """Synthesise a shot's dialogue and stretch the shot to fit it.
+
+        Runs before render because the render length comes from the shot's
+        duration. Without a speech provider the shot is simply silent.
+        """
+        from pathlib import Path
+
+        from src.integrations import audio
+
+        shot_id = task.shot_id
+        shot = self._get_shot(shot_id)
+        if not shot.dialogue:
+            return
+        if self.speech_provider is None:
+            logger.warning(
+                f"Shot '{shot_id}' has dialogue but no speech provider is available "
+                "(set speech_provider in config.yaml, or install espeak-ng) — it will be silent"
+            )
+            return
+
+        work = Path(self.config.get("storage_path", "./storage")) / "audio" / shot_id
+        work.mkdir(parents=True, exist_ok=True)
+        lines = []
+        for i, entry in enumerate(shot.dialogue, start=1):
+            raw = work / f"line{i:02d}_raw.wav"
+            self.speech_provider.synthesize(
+                entry["line"], raw, voice=self.speech_provider.voice_for(entry["character"])
+            )
+            lines.append(audio.normalise(raw, work / f"line{i:02d}.wav", self.config))
+        joined = audio.join_lines(lines, work / "dialogue.wav")
+        self._audio_paths[shot_id] = joined
+        self._speech_info[shot_id] = {
+            "wav": joined,
+            "lines": [
+                {"character": e["character"], "start": a, "end": b}
+                for e, (a, b) in zip(shot.dialogue, audio.line_offsets(lines))
+            ],
+        }
+
+        needed = audio.wav_duration(joined) + float(self.config.get("dialogue_tail_seconds", 0.4))
+        if needed > shot.duration_seconds:
+            logger.info(f"Shot '{shot_id}' lengthened {shot.duration_seconds:.1f}s -> {needed:.1f}s to fit its dialogue")
+            shot.duration_seconds = round(needed, 2)
+            if self.world_state is not None:
+                self.world_state.add_shot(shot_id, shot.to_metadata())
+        if self.on_shot_update:
+            self.on_shot_update(shot_id, "voiced", f"{len(shot.dialogue)} line(s)")
 
     def _run_render(self, task) -> None:
         shot_id = task.shot_id
@@ -224,7 +283,9 @@ class PipelineOrchestrator:
                 raise OrchestratorError(f"No rendered frames for shot '{shot_id}' to validate")
             shot = self._get_shot(shot_id)
 
-            report = self.validator_mgr.validate_frame(frames[0], shot, self.world_state)
+            report = self.validator_mgr.validate_frame(
+                frames[0], shot, self.world_state, character_images=self._asset_paths
+            )
 
             if report.passed:
                 if self.world_state is not None:
@@ -273,7 +334,7 @@ class PipelineOrchestrator:
                 "that were never in the original task schedule"
             )
 
-        scene_path = self.scene_composer.compose_shot(shot, assets)
+        scene_path = self.scene_composer.compose_shot(shot, assets, speech=self._speech_info.get(shot.shot_id))
         self._scene_paths[shot.shot_id] = scene_path
 
         if self.godot_renderer is None:
@@ -304,4 +365,5 @@ class PipelineOrchestrator:
             lighting=data.get("lighting", "natural daylight"),
             action=data.get("action", ""),
             duration_seconds=data.get("duration_seconds", 4.0),
+            dialogue=data.get("dialogue", []),
         )

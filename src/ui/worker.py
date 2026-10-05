@@ -44,7 +44,7 @@ class PipelineWorker(QObject):
     def run(self) -> None:
         from src.integrations.ffmpeg.video_assembler import FFmpegError, VideoAssembler
         from src.integrations.otio.timeline_export import TimelineExportError, export_timeline
-        from src.pipeline import build_pipeline, ensure_storage
+        from src.pipeline import build_pipeline, ensure_storage, timeline_shots
 
         try:
             self.stage.emit("Starting pipeline…")
@@ -85,14 +85,13 @@ class PipelineWorker(QObject):
             if ordered:
                 self.stage.emit("Assembling video…")
                 assembler = VideoAssembler(self.config)
-                video = assembler.assemble(ordered, output_name=self.output_name)
+                audio = {sid: p for sid, p in orchestrator.shot_audio.items() if sid in ordered}
+                video = assembler.assemble(ordered, output_name=self.output_name, shot_audio=audio or None)
                 try:
                     timeline = export_timeline(
-                        [{"shot_id": s.shot_id, "duration_seconds": s.duration_seconds,
-                          "scene_description": s.scene_description, "camera_angle": s.camera_angle,
-                          "lighting": s.lighting, "characters": s.characters, "action": s.action}
-                         for s in plan.shots],
-                        assembler.segment_paths, Path(video).with_suffix(".otio"), fps=assembler.fps)
+                        timeline_shots(plan, ordered, assembler.fps, world_state),
+                        assembler.segment_paths, Path(video).with_suffix(".otio"),
+                        fps=assembler.fps, shot_audio=audio or None)
                 except TimelineExportError as e:
                     logger.warning(f"Timeline not written: {e}")
             self.finished.emit(self._summary(video=video, timeline=timeline, frames=ordered, failures=failures))

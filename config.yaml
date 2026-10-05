@@ -51,6 +51,18 @@ vision_anthropic_api_key: ""
 
 # ── Image model (asset generation) ──
 image_provider: gemini
+
+# Dialogue (text-to-speech): auto | none | espeak | openai | dummy.
+# auto = real offline speech through espeak-ng if installed, otherwise silent.
+speech_provider: auto
+# Other options:
+#   speech_provider: piper     # local neural voices; put <name>.onnx (+ .onnx.json) files in ./voices
+#   speech_provider: command   # any TTS program, e.g. a voice-cloning tool given your own recording
+#   speech_command: ["my-tts", "--ref", "{voice}", "--text-file", "{text_file}", "--out", "{out}"]
+# Give characters their own voices (name -> voice; for piper/espeak/openai a voice name,
+# for `command` whatever your program expects, e.g. a path to a reference recording).
+# Only use voices you have the right to use. Unlisted characters get a stable automatic voice.
+voices: {}
 # Google's Imagen line is being retired (shutdown as early as Aug 17, 2026).
 # Gemini's own image model — "Nano Banana 2" (gemini-3.1-flash-image) — is
 # the current recommended replacement: fast, cheap, and supports
@@ -110,3 +122,13 @@ render_height: 648
 # straight to "rendered" status, which is faster/cheaper for quick tests
 # or if you don't have a vision-capable model configured.
 skip_validation: true
+
+# ── Blender characters ──────────────────────────────────────────────
+# planes (default): each character is its flat generated image standing in the 3D set.
+# rigged: an animated 3D figure (idle / talk / walk, jaw follows the dialogue) wearing the
+#         colours of the character's generated art. Or CLI: --characters rigged
+blender_characters: planes
+# Use your own glTF/GLB model for a character (rigged). Mouth moves if the model has a
+# "jawOpen" / "mouthOpen" / "viseme_aa" shape key; its own animation clips (idle/walk/talk) play.
+# character_models:
+#   Ann: /path/to/ann.glb

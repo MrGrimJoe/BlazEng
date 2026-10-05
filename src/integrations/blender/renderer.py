@@ -27,6 +27,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..display import missing_display_tool, subprocess_kwargs, wrap_command
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_FPS = 24
@@ -88,11 +90,9 @@ class BlenderRenderer:
                 "(https://www.blender.org/download/ or `sudo apt install blender`) or set "
                 "blender_path in config.yaml."
             )
-        if shutil.which("xvfb-run") is None:
-            raise BlenderRenderError(
-                "xvfb-run is not installed. On Debian/Ubuntu: sudo apt install xvfb. "
-                "EEVEE needs an OpenGL context even with --background."
-            )
+        hint = missing_display_tool()
+        if hint:
+            raise BlenderRenderError(f"{hint} EEVEE needs an OpenGL context even with --background.")
 
         scene_json = Path(scene_path).with_suffix(".scene.json")
         if not scene_json.exists():
@@ -107,19 +107,19 @@ class BlenderRenderer:
         for stale in shot_dir.glob("*.png"):
             stale.unlink()
 
-        cmd = [
-            "xvfb-run", "-a",
+        cmd = wrap_command([
             binary, "--background", "--factory-startup",
             "--python", str(_SCRIPT),
             "--",
             str(scene_json.resolve()), str(shot_dir.resolve()),
             str(frames), str(self.fps), str(self.width), str(self.height),
             self.engine, str(self.samples),
-        ]
+        ])
 
         logger.info(f"Blender rendering {shot_id}: {frames} frames @ {self.fps}fps ({self.engine})")
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout_seconds)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout_seconds,
+                **subprocess_kwargs())
         except subprocess.TimeoutExpired as e:
             raise BlenderRenderError(
                 f"Blender render of '{shot_id}' timed out after {self.timeout_seconds}s"

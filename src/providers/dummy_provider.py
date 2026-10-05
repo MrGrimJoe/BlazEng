@@ -26,6 +26,7 @@ def _dummy_plan_json(prompt: str, num_shots: int = 3) -> str:
             "camera_angle": ["wide shot", "medium shot", "close-up"][(i - 1) % 3],
             "lighting": "natural daylight",
             "action": f"Action beat {i}",
+            "dialogue": [{"character": "protagonist", "line": f"This is line number {i}."}],
             "duration_seconds": 4.0,
         }
         for i in range(1, num_shots + 1)
@@ -118,11 +119,20 @@ class DummyImageProvider(ImageProvider):
     def __init__(self):
         self.call_log = []
 
-    def generate_image(self, prompt: str, output_path: Path) -> Path:
-        self.call_log.append({"prompt": prompt, "output_path": str(output_path)})
+    def generate_image(
+        self, prompt: str, output_path: Path, reference_image: Optional[Path] = None
+    ) -> Path:
+        self.call_log.append({
+            "prompt": prompt, "output_path": str(output_path),
+            "reference_image": str(reference_image) if reference_image else None,
+        })
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(self._silhouette_png(prompt))
+        if reference_image is not None and Path(reference_image).is_file():
+            # "Image-conditioned" generation, offline: keep the same character.
+            output_path.write_bytes(Path(reference_image).read_bytes())
+        else:
+            output_path.write_bytes(self._silhouette_png(prompt))
         logger.debug(f"Dummy image written: {output_path}")
         return output_path
 

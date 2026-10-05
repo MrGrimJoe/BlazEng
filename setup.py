@@ -2,7 +2,7 @@
 AI Production Studio — One-click setup.
 Installs Python deps, downloads Godot + FFmpeg, configures model, writes config.yaml.
 """
-import os, sys, platform, subprocess, zipfile, tarfile, shutil, urllib.request
+import sys, platform, subprocess, zipfile, tarfile, shutil, urllib.request
 from pathlib import Path
 
 SYSTEM = platform.system()

@@ -76,6 +76,15 @@ def validate_provider_config(config: Dict[str, Any]) -> Tuple[bool, str]:
     if image_p == "diffusers" and not config.get("hf_image_repo_id"):
         problems.append("image_provider is 'diffusers' but hf_image_repo_id is empty")
 
+    speech_p = str(config.get("speech_provider", "auto")).lower()
+    from .speech_providers import SPEECH_PROVIDERS
+    if speech_p not in SPEECH_PROVIDERS:
+        problems.append(f"Unknown speech_provider '{speech_p}' (expected one of {sorted(SPEECH_PROVIDERS)})")
+    if speech_p == "openai":
+        key = config.get("openai_api_key", "")
+        if not key or key.endswith("_HERE"):
+            problems.append("openai_api_key is not set in config.yaml (needed for speech_provider: openai)")
+
     if problems:
         return False, "; ".join(problems)
     return True, "Configuration valid"

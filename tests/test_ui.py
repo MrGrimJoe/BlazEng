@@ -14,8 +14,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
@@ -23,7 +22,6 @@ from src.ui.asset_browser import AssetBrowser
 from src.ui.model_setup_dialog import ModelSetupDialog
 from src.ui.shot_viewer import ShotViewer
 from src.ui.timeline_widget import TimelineWidget
-from src.ui.world_state_viewer import WorldStateViewer
 
 HAVE_FFMPEG = shutil.which("ffmpeg") is not None
 
@@ -237,6 +235,40 @@ class TestDialog:
         assert not d.engine_combo.isEnabled()
         d.renderer_combo.setCurrentText("blender")
         assert d.engine_combo.isEnabled()
+
+    def test_speech_voices_and_characters_roundtrip(self, qapp, config):
+        d = ModelSetupDialog({**config, "speech_provider": "piper", "blender_characters": "rigged",
+                              "voices": {"Ann": "amy", "Bob": "ryan:2"}})
+        assert d.speech_combo.currentText() == "piper" and d.characters_combo.currentText() == "rigged"
+        assert d.voices_edit.text() == "Ann=amy, Bob=ryan:2"
+        d.voices_edit.setText("Ann=en-us+f3, Zed = x")
+        out = d.get_updated_config()
+        assert out["speech_provider"] == "piper" and out["blender_characters"] == "rigged"
+        assert out["voices"] == {"Ann": "en-us+f3", "Zed": "x"}
+
+    def test_defaults_when_config_has_no_speech_settings(self, qapp, config):
+        out = ModelSetupDialog(config).get_updated_config()
+        assert out["speech_provider"] == "auto" and out["blender_characters"] == "planes" and out["voices"] == {}
+
+    def test_malformed_voices_block_ok_and_keep_old_value(self, qapp, config):
+        d = ModelSetupDialog({**config, "voices": {"Ann": "amy"}})
+        ok = d.buttons.button(d.buttons.StandardButton.Ok)
+        d.voices_edit.setText("Ann amy")
+        assert not ok.isEnabled() and "Name=voice" in d.message.text()
+        assert d.get_updated_config()["voices"] == {"Ann": "amy"}
+        d.voices_edit.setText("Ann=amy")
+        assert ok.isEnabled()
+
+    def test_characters_choice_disabled_for_godot(self, qapp, config):
+        d = ModelSetupDialog(config)
+        d.renderer_combo.setCurrentText("godot")
+        assert not d.characters_combo.isEnabled()
+
+    def test_openai_speech_needs_a_key(self, qapp, config):
+        d = ModelSetupDialog({**config, "speech_provider": "openai"})
+        assert not d.buttons.button(d.buttons.StandardButton.Ok).isEnabled()
+        d.keys["openai_api_key"].setText("sk-1")
+        assert d.buttons.button(d.buttons.StandardButton.Ok).isEnabled()
 
     def test_does_not_mutate_input_config(self, qapp, config):
         before = dict(config)

@@ -40,3 +40,13 @@ include = ["src/**/*.py"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "tests", "README.md", "LICENSE", "config.yaml", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# Deliberately minimal: only things that are bugs or dead code (syntax errors,
+# undefined names, unused/duplicate imports and variables). Style rules are
+# left off so CI failures always mean something is actually wrong.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F841"]

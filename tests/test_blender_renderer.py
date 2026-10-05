@@ -24,6 +24,19 @@ from src.integrations.godot.renderer import GodotRenderer
 HAVE_BLENDER = shutil.which("blender") is not None and shutil.which("xvfb-run") is not None
 
 
+@pytest.fixture(autouse=True)
+def _assume_linux_display(monkeypatch):
+    """These tests describe the Linux code path (commands wrapped in xvfb-run).
+
+    Windows/macOS launch the engine directly; that behaviour is covered in
+    tests/test_display.py, so pin the platform here to keep these assertions
+    meaningful on every CI operating system.
+    """
+    from src.integrations import display
+
+    monkeypatch.setattr(display, "needs_virtual_display", lambda: True)
+
+
 def _make_png(path: Path, size=(64, 128), color=(200, 60, 60, 255)) -> Path:
     from PIL import Image
 

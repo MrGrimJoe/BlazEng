@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.providers.hf_common import HFAuthRequiredError
 from src.providers.huggingface_provider import (
     HuggingFaceConfigError,
     HuggingFaceTextProvider,

@@ -16,7 +16,7 @@ changelog to check before upgrading.
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .base import ImageProvider, TextProvider, VisionProvider
 
@@ -117,14 +117,25 @@ class GeminiImageProvider(ImageProvider):
         self.model = model
         logger.info(f"GeminiImageProvider ready (model={model})")
 
-    def generate_image(self, prompt: str, output_path: Path) -> Path:
+    def generate_image(
+        self, prompt: str, output_path: Path, reference_image: Optional[Path] = None
+    ) -> Path:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        contents: Any = prompt
+        if reference_image is not None and Path(reference_image).is_file():
+            ref = Path(reference_image)
+            contents = [
+                genai_types.Part.from_bytes(data=ref.read_bytes(), mime_type=_guess_mime_type(ref)),
+                "Keep this exact character (same face, hairstyle, clothing and colours). "
+                "Draw them again as follows: " + prompt,
+            ]
 
         try:
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=contents,
                 config=genai_types.GenerateContentConfig(response_modalities=["IMAGE"]),
             )
         except Exception as e:

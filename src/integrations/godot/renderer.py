@@ -26,10 +26,11 @@ setup.py change this depends on, which is not yet wired in).
 """
 
 import logging
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from ..display import missing_display_tool, subprocess_kwargs, wrap_command
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +74,11 @@ class GodotRenderer:
                 f"Godot binary not found at {self.godot_binary}. "
                 "Run setup.py to download it, or set godot_binary_path in config.yaml."
             )
-        if shutil.which("xvfb-run") is None:
+        hint = missing_display_tool()
+        if hint:
             raise GodotRenderError(
-                "xvfb-run is not installed. On Debian/Ubuntu: sudo apt install xvfb. "
-                "Real (non-dummy) rendering requires a virtual display — see "
-                "this module's docstring for why --headless alone doesn't work."
+                f"{hint} Real (non-dummy) rendering requires a virtual display on Linux — "
+                "see this module's docstring for why --headless alone doesn't work."
             )
 
         frames = num_frames if num_frames is not None else max(1, round(duration_seconds * self.fps))
@@ -100,8 +101,7 @@ class GodotRenderer:
         project_dir = scene_path.parent.parent.resolve()  # scenes/<file>.tscn -> project root
         scene_rel = scene_path.resolve().relative_to(project_dir)
 
-        cmd = [
-            "xvfb-run", "-a",
+        cmd = wrap_command([
             str(self.godot_binary),
             "--path", str(project_dir),
             str(scene_rel),
@@ -109,12 +109,13 @@ class GodotRenderer:
             "--write-movie", str(movie_stub),
             "--quit-after", str(frames),
             "--fixed-fps", str(self.fps),
-        ]
+        ])
 
         logger.info(f"Rendering {shot_id}: {frames} frames @ {self.fps}fps")
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self.timeout_seconds
+                cmd, capture_output=True, text=True, timeout=self.timeout_seconds,
+                **subprocess_kwargs()
             )
         except subprocess.TimeoutExpired as e:
             raise GodotRenderError(

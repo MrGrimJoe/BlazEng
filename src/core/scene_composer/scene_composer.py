@@ -52,6 +52,7 @@ _CAMERA_ANGLE_SCALE = {
     "overhead": 0.7,
 }
 _DEFAULT_SCALE = 1.0
+_WALK_WORDS = ("walk", "run", "approach", "stroll", "enter", "step", "march", "pace")
 
 # Lighting keyword -> a dim (r, g, b, a) modulate applied to the whole
 # scene root, as a simple stand-in for real lighting until SceneComposer
@@ -119,8 +120,12 @@ class SceneComposer:
         )
         logger.info(f"Godot project initialized: {self.project_dir}")
 
-    def compose_shot(self, shot, assets: Dict[str, Path]) -> Path:
+    def compose_shot(self, shot, assets: Dict[str, Path], speech: Optional[Dict[str, Any]] = None) -> Path:
         """Build a .tscn scene for `shot` using `assets` (name -> image path).
+
+        ``speech`` (optional) is the shot's dialogue audio: ``{"wav": path, "lines":
+        [{"character", "start", "end"}]}``. It only affects the Blender description
+        (mouth movement and who is talking); the Godot scene is unchanged.
 
         Returns the absolute path to the generated .tscn file. Raises
         SceneComposerError if a character in shot.characters has no
@@ -132,7 +137,7 @@ class SceneComposer:
 
         scene_path = self.scenes_dir / f"{_sanitize_shot_id(shot.shot_id)}.tscn"
         scene_path.write_text(self._build_tscn(gdscript))
-        self._write_scene_json(shot, placements, modulate, scene_path)
+        self._write_scene_json(shot, placements, modulate, scene_path, speech)
         logger.info(f"Composed scene for {shot.shot_id}: {scene_path}")
         return scene_path
 
@@ -141,7 +146,7 @@ class SceneComposer:
         """Location of the renderer-neutral JSON that accompanies a .tscn."""
         return Path(scene_path).with_suffix(".scene.json")
 
-    def _write_scene_json(self, shot, placements, modulate, scene_path: Path) -> Path:
+    def _write_scene_json(self, shot, placements, modulate, scene_path: Path, speech=None) -> Path:
         """Write the renderer-neutral scene description (schema version 1).
 
         Consumed by the Blender backend (see blender_scene.py for the schema).
@@ -166,9 +171,72 @@ class SceneComposer:
                 for p in placements
             ],
         }
+        if self.config.get("blender_characters", "planes") == "rigged":
+            self._add_rigged_description(data, shot, placements, half_w, speech)
         json_path = self.scene_json_path(scene_path)
         json_path.write_text(json.dumps(data, indent=2))
         return json_path
+
+    # ------------------------------------------------------------------
+    # Rigged 3D characters (Blender): palette, motion, lip-sync curves
+    # ------------------------------------------------------------------
+
+    def _add_rigged_description(self, data, shot, placements, half_w, speech) -> None:
+        """Extend the scene JSON (additively; version stays 1) for rigged characters.
+
+        Adds per character: ``palette`` (colours read from the reference art), ``model``
+        (procedural stand-in, or a user .glb from ``character_models``), ``motion`` and,
+        for walkers, ``walk_to``; and per shot ``mouth`` (per-frame openness for each
+        speaker, from the dialogue audio) plus ``dialogue`` timing.
+        """
+        from src.core.validator.consistency import palette_from_image
+
+        fps = int(self.config.get("render_fps", 24))
+        frames = max(1, round(float(shot.duration_seconds) * fps))
+        models = {str(k).lower(): v for k, v in (self.config.get("character_models") or {}).items()}
+        lines = list((speech or {}).get("lines", []))
+        speakers = {str(l["character"]).strip().lower() for l in lines}
+        walking = any(w in f"{shot.action} {shot.scene_description}".lower() for w in _WALK_WORDS)
+
+        data["character_style"] = "rigged"
+        data["fps"] = fps
+        data["frames"] = frames
+        for entry, p in zip(data["characters"], placements):
+            key = p.name.strip().lower()
+            try:
+                entry["palette"] = palette_from_image(p.image_path)
+            except Exception as e:  # noqa: BLE001 - unreadable art must not stop the scene
+                logger.warning(f"Could not read colours from {p.image_path}: {e}")
+                entry["palette"] = {"skin": [0.8, 0.6, 0.5], "hair": [0.2, 0.15, 0.1],
+                                    "shirt": [0.4, 0.4, 0.5], "trousers": [0.2, 0.2, 0.3]}
+            model_path = models.get(key)
+            if model_path and not Path(model_path).is_file():
+                raise SceneComposerError(f"character_models: model for '{p.name}' not found: {model_path}")
+            entry["model"] = ({"type": "file", "path": str(Path(model_path).resolve())} if model_path
+                              else {"type": "procedural"})
+            speaking = key in speakers
+            if walking:
+                entry["motion"] = "walk"
+                entry["walk_to"] = round(entry["x"] * 0.55, 4)  # converge towards the middle, stopping short of touching
+            else:
+                entry["motion"] = "talk" if speaking else "idle"
+
+        if lines and speech and speech.get("wav"):
+            from src.integrations import audio
+
+            mouth: Dict[str, List[float]] = {}
+            for l in lines:
+                name = str(l["character"]).strip()
+                curve = mouth.setdefault(name, [0.0] * frames)
+                first = int(l["start"] * fps)
+                vals = audio.envelope(speech["wav"], fps, l["start"], l["end"])
+                for i, v in enumerate(vals):
+                    if 0 <= first + i < frames:
+                        curve[first + i] = max(curve[first + i], v)
+            # keep only characters that are actually in the scene (case-insensitive match to their name)
+            names = {e["name"].strip().lower(): e["name"] for e in data["characters"]}
+            data["mouth"] = {names[k.lower()]: v for k, v in mouth.items() if k.lower() in names}
+            data["dialogue"] = [{"character": l["character"], "start": l["start"], "end": l["end"]} for l in lines]
 
     # ------------------------------------------------------------------
     # Layout

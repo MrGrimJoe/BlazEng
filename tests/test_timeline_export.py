@@ -1,6 +1,5 @@
 """OpenTimelineIO export — written and read back through the otio library itself."""
 
-from pathlib import Path
 
 import pytest
 

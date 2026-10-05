@@ -5,22 +5,10 @@ via provider_factory (three independent slots: text, vision, image), launches UI
 """
 import sys
 import logging
-from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 
 from src import pipeline
 
-LOG_PATH = Path("storage/logs")
-LOG_PATH.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_PATH / "studio.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
-    ]
-)
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +49,9 @@ def build_pipeline(config: dict):
 
 
 def main() -> None:
+    from src.logging_setup import configure_logging
+
+    configure_logging()
     logger.info("BlazEng starting...")
     config = load_config()
     ensure_storage(config)

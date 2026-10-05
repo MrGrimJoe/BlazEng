@@ -105,12 +105,21 @@ class OpenAIImageProvider(ImageProvider):
         self.model = model
         logger.info(f"OpenAIImageProvider ready (model={model})")
 
-    def generate_image(self, prompt: str, output_path: Path) -> Path:
+    def generate_image(
+        self, prompt: str, output_path: Path, reference_image: Optional[Path] = None
+    ) -> Path:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            response = self.client.images.generate(model=self.model, prompt=prompt, size="1024x1024")
+            if reference_image is not None and Path(reference_image).is_file():
+                with open(reference_image, "rb") as ref:
+                    response = self.client.images.edit(
+                        model=self.model, image=ref, size="1024x1024",
+                        prompt="Keep this exact character (same face, hairstyle, clothing, colours). " + prompt,
+                    )
+            else:
+                response = self.client.images.generate(model=self.model, prompt=prompt, size="1024x1024")
         except Exception as e:
             logger.error(f"OpenAI image generation failed: {e}")
             raise

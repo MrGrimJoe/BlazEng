@@ -98,6 +98,7 @@ class ValidatorManager:
         shot,
         world_state,
         previous_frame_path: Optional[Path] = None,
+        character_images: Optional[dict] = None,
     ) -> FrameValidationReport:
         """Run all four validators against `frame_path` and return a report.
 
@@ -113,6 +114,8 @@ class ValidatorManager:
             self._run_character_validator(frame_path, shot, world_state),
             self._run_temporal_validator(frame_path, previous_frame_path),
         ]
+        if character_images:
+            results.append(self._run_consistency_validator(frame_path, shot, character_images))
         return FrameValidationReport(shot_id=shot.shot_id, results=results)
 
     # ------------------------------------------------------------------
@@ -152,6 +155,25 @@ class ValidatorManager:
             appearance_notes="; ".join(notes),
         )
         return self._ask_vision("CharacterValidator", frame_path, prompt)
+
+    def _run_consistency_validator(self, frame_path: Path, shot, character_images: dict) -> ValidationResult:
+        """Deterministic check that each character's art is visibly present in the frame."""
+        from src.core.validator.consistency import frame_shows_character
+
+        problems = []
+        for name in getattr(shot, "characters", []) or []:
+            ref = character_images.get(name)
+            if ref is None or not Path(ref).is_file():
+                continue
+            try:
+                ok, why = frame_shows_character(Path(frame_path), Path(ref))
+            except Exception as e:  # noqa: BLE001 - unreadable image must not crash validation
+                return ValidationResult("ConsistencyValidator", False, f"Could not read image: {e}")
+            if not ok:
+                problems.append(f"{name}: {why}")
+        if problems:
+            return ValidationResult("ConsistencyValidator", False, "; ".join(problems))
+        return ValidationResult("ConsistencyValidator", True, "Characters match their reference art")
 
     def _run_temporal_validator(
         self, frame_path: Path, previous_frame_path: Optional[Path]
