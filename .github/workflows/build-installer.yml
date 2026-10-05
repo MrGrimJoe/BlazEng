@@ -78,7 +78,7 @@ jobs:
           Start-Sleep -Seconds 5
           if (Test-Path "$dir\BlazEng.exe") { Write-Error "uninstall left files"; exit 1 }
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: BlazEng_Setup_${{ steps.ver.outputs.version }}
           path: dist\installer\BlazEng_Setup_${{ steps.ver.outputs.version }}.exe
